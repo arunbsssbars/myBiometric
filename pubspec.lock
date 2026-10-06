@@ -12,8 +12,8 @@ packages:
   aqil_core:
     dependency: "direct main"
     description:
-      path: "D:/Program/Antigravity/aqil_core_v10"
-      relative: false
+      path: "packages/aqil_core"
+      relative: true
     source: path
     version: "10.0.0"
   archive:

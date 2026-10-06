@@ -1,6 +1,6 @@
 // AQIL v12 Universal Pipeline Forwarder
-// Automatically generated: forwards directly to the canonical aqil_core package.
-// Any changes made to D:/Program/Antigravity/aqil_core_v10 are live immediately.
+// Automatically forwards directly to the bundled aqil_core package.
+// Bundled in packages/aqil_core for cross-platform and CI/CD portability.
 library aqil_fleet_shim;
 
 export 'package:aqil_core/aqil_core.dart';
