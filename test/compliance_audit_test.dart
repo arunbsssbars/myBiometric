@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/labor_compliance_policy.dart';
-import 'package:mybiometric_app/services/compliance_audit_service.dart';
+import 'package:mybiometric/domain/models/labor_compliance_policy.dart';
+import 'package:mybiometric/services/compliance_audit_service.dart';
 
 void main() {
   group('Labor Compliance Domain & Audit Engine Suite', () {

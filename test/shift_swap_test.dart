@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/shift_swap_request.dart';
-import 'package:mybiometric_app/services/shift_swap_service.dart';
+import 'package:mybiometric/domain/models/shift_swap_request.dart';
+import 'package:mybiometric/services/shift_swap_service.dart';
 
 void main() {
   group('Enterprise Shift Swapping & Peer Coverage Suite', () {

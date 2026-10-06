@@ -74,7 +74,7 @@ class BleBeaconVerificationService {
         measuredRssi: bestRssi,
         estimatedDistanceMeters: bestDistance,
         statusDescription:
-            'Signal too weak (${bestRssi} dBm < ${bestBeacon.minAcceptableRssi} dBm threshold, approx ${bestDistance.toStringAsFixed(1)}m away)',
+            'Signal too weak ($bestRssi dBm < ${bestBeacon.minAcceptableRssi} dBm threshold, approx ${bestDistance.toStringAsFixed(1)}m away)',
       );
     }
 
@@ -84,7 +84,7 @@ class BleBeaconVerificationService {
       measuredRssi: bestRssi,
       estimatedDistanceMeters: bestDistance,
       statusDescription:
-          'Verified at ${bestBeacon.name} (${bestRssi} dBm, ~${bestDistance.toStringAsFixed(1)}m)',
+          'Verified at ${bestBeacon.name} ($bestRssi dBm, ~${bestDistance.toStringAsFixed(1)}m)',
     );
   }
 

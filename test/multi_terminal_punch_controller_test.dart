@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/controllers/multi_terminal_punch_controller.dart';
+import 'package:mybiometric/controllers/multi_terminal_punch_controller.dart';
 
 void main() {
   group('MultiTerminalPunchController Tests', () {

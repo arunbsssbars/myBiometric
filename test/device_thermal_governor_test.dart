@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/device_thermal_power_telemetry.dart';
-import 'package:mybiometric_app/services/device_thermal_governor_service.dart';
+import 'package:mybiometric/domain/models/device_thermal_power_telemetry.dart';
+import 'package:mybiometric/services/device_thermal_governor_service.dart';
 
 void main() {
   group('DeviceThermalGovernorService Suite', () {

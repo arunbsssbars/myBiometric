@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/terminal_anti_passback_policy.dart';
-import 'package:mybiometric_app/services/terminal_anti_passback_service.dart';
+import 'package:mybiometric/domain/models/terminal_anti_passback_policy.dart';
+import 'package:mybiometric/services/terminal_anti_passback_service.dart';
 
 void main() {
   group('Terminal Anti-Passback & Dual Door Interlocking Suite', () {

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/enterprise_holiday_calendar.dart';
-import 'package:mybiometric_app/services/holiday_calendar_service.dart';
+import 'package:mybiometric/domain/models/enterprise_holiday_calendar.dart';
+import 'package:mybiometric/services/holiday_calendar_service.dart';
 
 void main() {
   group('HolidayCalendarService Tests', () {

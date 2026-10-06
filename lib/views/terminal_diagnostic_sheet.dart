@@ -306,7 +306,7 @@ class _TerminalDiagnosticSheetState extends State<TerminalDiagnosticSheet> {
                               height: AppSizes.iconSm,
                               child: CircularProgressIndicator(strokeWidth: 2, color: colors.primary),
                             )
-                          : Icon(Icons.refresh_rounded, size: AppSizes.iconSm),
+                          : const Icon(Icons.refresh_rounded, size: AppSizes.iconSm),
                       label: Text(
                         'Re-Probe Machine',
                         maxLines: 1,

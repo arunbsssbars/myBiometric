@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/minmoe_firmware_package.dart';
-import 'package:mybiometric_app/services/hikvision_minmoe_ota_service.dart';
+import 'package:mybiometric/domain/models/minmoe_firmware_package.dart';
+import 'package:mybiometric/services/hikvision_minmoe_ota_service.dart';
 
 void main() {
   group('HikvisionMinMoeOtaService Suite', () {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/core/design_system/design_system.dart';
+import 'package:mybiometric/core/design_system/design_system.dart';
 
 /// AQIL v2 matrix: 5 viewports × 4 font scales × light/dark, plus WCAG checks.
 const _viewports = [

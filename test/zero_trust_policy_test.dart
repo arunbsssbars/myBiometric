@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/zero_trust_access_evaluation.dart';
-import 'package:mybiometric_app/services/zero_trust_contextual_policy_service.dart';
+import 'package:mybiometric/domain/models/zero_trust_access_evaluation.dart';
+import 'package:mybiometric/services/zero_trust_contextual_policy_service.dart';
 
 void main() {
   group('ZeroTrustContextualPolicyService Suite', () {

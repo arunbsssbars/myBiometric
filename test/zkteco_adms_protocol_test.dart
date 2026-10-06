@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/zkteco_adms_profile.dart';
-import 'package:mybiometric_app/services/zkteco_adms_protocol_service.dart';
+import 'package:mybiometric/domain/models/zkteco_adms_profile.dart';
+import 'package:mybiometric/services/zkteco_adms_protocol_service.dart';
 
 void main() {
   group('ZktecoAdmsProtocolService Suite', () {

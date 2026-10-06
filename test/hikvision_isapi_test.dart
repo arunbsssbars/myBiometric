@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/external_biometric_device.dart';
-import 'package:mybiometric_app/services/hikvision_isapi_service.dart';
+import 'package:mybiometric/domain/models/external_biometric_device.dart';
+import 'package:mybiometric/services/hikvision_isapi_service.dart';
 
 void main() {
   group('Hikvision ISAPI Protocol & AcsEvents Parser Suite', () {

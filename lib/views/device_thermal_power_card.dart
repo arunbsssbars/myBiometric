@@ -117,7 +117,7 @@ class DeviceThermalPowerCard extends StatelessWidget {
                       Text('Camera Target', style: context.text.labelSmall?.copyWith(color: context.colors.textSecondary)),
                       const SizedBox(height: 2),
                       Text(
-                        '${targetFps} FPS',
+                        '$targetFps FPS',
                         style: context.text.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

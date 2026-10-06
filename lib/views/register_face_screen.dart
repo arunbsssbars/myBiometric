@@ -11,7 +11,7 @@ import 'face_overlay_painter.dart';
 class RegisterFaceScreen extends StatefulWidget {
   final String fullName;
   final String employeeId;
-  const RegisterFaceScreen({Key? key, required this.fullName, required this.employeeId}) : super(key: key);
+  const RegisterFaceScreen({super.key, required this.fullName, required this.employeeId});
 
   @override
   State<RegisterFaceScreen> createState() => _RegisterFaceScreenState();
@@ -166,7 +166,7 @@ class _RegisterFaceScreenState extends State<RegisterFaceScreen> {
         });
       }
     } catch (e, stack) {
-      print("Error registering face: " + e.toString() + "\n" + stack.toString());
+      print("Error registering face: $e\n$stack");
     } finally {
       if (mounted) _isProcessing = false;
     }
@@ -193,7 +193,7 @@ class _RegisterFaceScreenState extends State<RegisterFaceScreen> {
 
     final effectiveBorderColor = _borderColor ?? AppPalette.white;
     final statusSuccessColor = context.status.success.color;
-    final textColor = AppPalette.white;
+    const textColor = AppPalette.white;
 
     return Scaffold(
       backgroundColor: AppPalette.black,
@@ -233,7 +233,7 @@ class _RegisterFaceScreenState extends State<RegisterFaceScreen> {
                   child: Row(
                     children: [
                       IconButton(
-                        icon: Icon(Icons.close, color: textColor, size: 32),
+                        icon: const Icon(Icons.close, color: textColor, size: 32),
                         onPressed: () => Navigator.pop(context),
                       ),
                       Expanded(
@@ -276,7 +276,7 @@ class _RegisterFaceScreenState extends State<RegisterFaceScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       if (_progress > 0 && !_isSuccess)
-                        SizedBox(
+                        const SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(color: textColor, strokeWidth: 2),
@@ -284,7 +284,7 @@ class _RegisterFaceScreenState extends State<RegisterFaceScreen> {
                       else if (_isSuccess)
                         Icon(Icons.check, color: statusSuccessColor)
                       else
-                        Icon(Icons.face, color: textColor),
+                        const Icon(Icons.face, color: textColor),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Text(

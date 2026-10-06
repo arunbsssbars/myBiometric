@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/liveness_telemetry_event.dart';
-import 'package:mybiometric_app/services/liveness_telemetry_service.dart';
+import 'package:mybiometric/domain/models/liveness_telemetry_event.dart';
+import 'package:mybiometric/services/liveness_telemetry_service.dart';
 
 void main() {
   group('LivenessTelemetryService Tests', () {

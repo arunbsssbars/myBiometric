@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/enterprise_announcement.dart';
+import 'package:mybiometric/domain/models/enterprise_announcement.dart';
 
 void main() {
   group('Enterprise Broadcast Announcement Suite', () {

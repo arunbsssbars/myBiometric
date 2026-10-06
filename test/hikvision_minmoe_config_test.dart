@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/minmoe_hardware_config.dart';
-import 'package:mybiometric_app/services/hikvision_minmoe_config_service.dart';
+import 'package:mybiometric/domain/models/minmoe_hardware_config.dart';
+import 'package:mybiometric/services/hikvision_minmoe_config_service.dart';
 
 void main() {
   group('HikvisionMinMoeConfigService Suite', () {

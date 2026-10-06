@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/minmoe_face_enrollment_payload.dart';
-import 'package:mybiometric_app/services/hikvision_face_enrollment_service.dart';
+import 'package:mybiometric/domain/models/minmoe_face_enrollment_payload.dart';
+import 'package:mybiometric/services/hikvision_face_enrollment_service.dart';
 
 void main() {
   group('HikvisionFaceEnrollmentService Suite', () {

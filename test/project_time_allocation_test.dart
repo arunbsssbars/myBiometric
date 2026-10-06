@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/work_project.dart';
-import 'package:mybiometric_app/services/project_time_allocation_service.dart';
+import 'package:mybiometric/domain/models/work_project.dart';
+import 'package:mybiometric/services/project_time_allocation_service.dart';
 
 void main() {
   group('Project Time Allocation & Job Costing Suite', () {

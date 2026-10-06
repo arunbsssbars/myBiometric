@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/mobile_virtual_nfc_badge.dart';
-import 'package:mybiometric_app/services/mobile_nfc_hce_bridge_service.dart';
+import 'package:mybiometric/domain/models/mobile_virtual_nfc_badge.dart';
+import 'package:mybiometric/services/mobile_nfc_hce_bridge_service.dart';
 
 void main() {
   group('MobileNfcHceBridgeService Tests', () {

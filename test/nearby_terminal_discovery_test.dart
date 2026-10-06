@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/services/nearby_terminal_discovery_service.dart';
+import 'package:mybiometric/services/nearby_terminal_discovery_service.dart';
 
 void main() {
   group('NearbyTerminalDiscoveryService Tests', () {

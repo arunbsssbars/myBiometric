@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/bulk_roster_import.dart';
-import 'package:mybiometric_app/services/bulk_roster_service.dart';
+import 'package:mybiometric/domain/models/bulk_roster_import.dart';
+import 'package:mybiometric/services/bulk_roster_service.dart';
 
 void main() {
   group('Enterprise Bulk Staff Onboarding Suite', () {

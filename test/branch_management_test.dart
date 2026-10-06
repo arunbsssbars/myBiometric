@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/enterprise_branch.dart';
-import 'package:mybiometric_app/services/branch_management_service.dart';
+import 'package:mybiometric/domain/models/enterprise_branch.dart';
+import 'package:mybiometric/services/branch_management_service.dart';
 
 void main() {
   group('BranchManagementService & Multi-Branch Tests', () {

@@ -265,7 +265,7 @@ class _GeofenceSettingsScreenState extends State<GeofenceSettingsScreen> {
                                 height: AppSizes.iconSm,
                                 child: CircularProgressIndicator(strokeWidth: 2, color: colors.primary),
                               )
-                            : Icon(Icons.my_location_rounded, size: AppSizes.iconSm),
+                            : const Icon(Icons.my_location_rounded, size: AppSizes.iconSm),
                         label: Text('Get GPS', style: textTheme.labelSmall),
                         style: FilledButton.styleFrom(
                           visualDensity: VisualDensity.compact,
@@ -336,7 +336,7 @@ class _GeofenceSettingsScreenState extends State<GeofenceSettingsScreen> {
                   const SizedBox(height: AppSpacing.md),
                   OutlinedButton.icon(
                     onPressed: _isLoadingGps ? null : _testCurrentPosition,
-                    icon: Icon(Icons.check_circle_outline_rounded, size: AppSizes.iconSm),
+                    icon: const Icon(Icons.check_circle_outline_rounded, size: AppSizes.iconSm),
                     label: Text('Test Location Match', style: textTheme.labelLarge),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),

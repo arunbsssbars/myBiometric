@@ -238,7 +238,7 @@ class PushNotificationService {
     required String punchType,
     required double distanceFromOfficeMeters,
   }) async {
-    final title = "⚠️ Geofence Boundary Alert";
+    const title = "⚠️ Geofence Boundary Alert";
     final body = "$employeeName clocked $punchType ${distanceFromOfficeMeters.toInt()}m outside the office perimeter.";
 
     await _firestore.collection('notifications').add({
@@ -261,7 +261,7 @@ class PushNotificationService {
     required String leaveType,
     required int daysCount,
   }) async {
-    final title = "📅 New Leave Request";
+    const title = "📅 New Leave Request";
     final body = "$employeeName submitted a $leaveType request for $daysCount day${daysCount > 1 ? 's' : ''}.";
 
     await _firestore.collection('notifications').add({

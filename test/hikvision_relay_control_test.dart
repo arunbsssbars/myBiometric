@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/minmoe_remote_relay_command.dart';
-import 'package:mybiometric_app/services/hikvision_relay_control_service.dart';
+import 'package:mybiometric/domain/models/minmoe_remote_relay_command.dart';
+import 'package:mybiometric/services/hikvision_relay_control_service.dart';
 
 void main() {
   group('HikvisionRelayControlService Suite', () {

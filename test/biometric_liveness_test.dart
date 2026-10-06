@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/biometric_liveness_audit.dart';
-import 'package:mybiometric_app/services/biometric_liveness_audit_service.dart';
+import 'package:mybiometric/domain/models/biometric_liveness_audit.dart';
+import 'package:mybiometric/services/biometric_liveness_audit_service.dart';
 
 void main() {
   group('BiometricLivenessAuditService Tests', () {

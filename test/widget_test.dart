@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/views/face_overlay_painter.dart';
+import 'package:mybiometric/views/face_overlay_painter.dart';
 
 void main() {
   testWidgets('FaceHolePainter renders correctly', (WidgetTester tester) async {

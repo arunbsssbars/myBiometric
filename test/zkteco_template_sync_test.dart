@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/zkteco_biometric_template.dart';
-import 'package:mybiometric_app/services/zkteco_template_sync_service.dart';
+import 'package:mybiometric/domain/models/zkteco_biometric_template.dart';
+import 'package:mybiometric/services/zkteco_template_sync_service.dart';
 
 void main() {
   group('ZktecoTemplateSyncService Suite', () {

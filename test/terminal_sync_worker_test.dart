@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/terminal_sync_session_record.dart';
+import 'package:mybiometric/domain/models/terminal_sync_session_record.dart';
 
 void main() {
   group('Terminal Sync Background Worker & History Suite', () {

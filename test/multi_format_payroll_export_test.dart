@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/multi_format_payroll_export.dart';
-import 'package:mybiometric_app/services/multi_format_payroll_export_service.dart';
+import 'package:mybiometric/domain/models/multi_format_payroll_export.dart';
+import 'package:mybiometric/services/multi_format_payroll_export_service.dart';
 
 void main() {
   group('MultiFormatPayrollExportService Tests', () {

@@ -138,7 +138,7 @@ class _MobilePunchCardState extends State<MobilePunchCard> {
             children: [
               Icon(Icons.security, color: themeColors.onError, size: AppSizes.iconMd),
               const SizedBox(width: AppSpacing.sm),
-              Expanded(
+              const Expanded(
                 child: Text(
                   'Mock location detected! Please disable GPS spoofing to record attendance.',
                   overflow: TextOverflow.ellipsis,

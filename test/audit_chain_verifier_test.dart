@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/audit_hash_block.dart';
-import 'package:mybiometric_app/services/audit_chain_verifier_service.dart';
+import 'package:mybiometric/domain/models/audit_hash_block.dart';
+import 'package:mybiometric/services/audit_chain_verifier_service.dart';
 
 void main() {
   group('AuditChainVerifierService Tests', () {

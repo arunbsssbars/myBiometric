@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/external_biometric_device.dart';
-import 'package:mybiometric_app/domain/models/terminal_biometric_template.dart';
-import 'package:mybiometric_app/services/terminal_biometric_template_service.dart';
+import 'package:mybiometric/domain/models/external_biometric_device.dart';
+import 'package:mybiometric/domain/models/terminal_biometric_template.dart';
+import 'package:mybiometric/services/terminal_biometric_template_service.dart';
 
 void main() {
   group('Terminal Biometric Template & Feature Sync Suite', () {

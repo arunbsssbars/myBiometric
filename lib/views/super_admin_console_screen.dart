@@ -186,7 +186,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                     elevation: 1,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                      side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -235,7 +235,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: Colors.green.withOpacity(0.12),
+                                  color: Colors.green.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Text(
@@ -381,7 +381,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     leading: CircleAvatar(
-                      backgroundColor: roleColor.withOpacity(0.15),
+                      backgroundColor: roleColor.withValues(alpha: 0.15),
                       child: Icon(
                         role == 'super_admin' ? Icons.shield_rounded : Icons.person_rounded,
                         color: roleColor,
@@ -397,7 +397,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                     trailing: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: roleColor.withOpacity(0.12),
+                        color: roleColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -497,7 +497,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                           ? Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: Colors.amber.withOpacity(0.2),
+                                color: Colors.amber.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Text(
@@ -604,7 +604,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+            borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
           ),
         ),
         onChanged: (val) => setState(() => _searchQuery = val),

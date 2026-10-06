@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/registered_device.dart';
-import 'package:mybiometric_app/services/device_binding_service.dart';
+import 'package:mybiometric/domain/models/registered_device.dart';
+import 'package:mybiometric/services/device_binding_service.dart';
 
 void main() {
   group('DeviceBindingService & RegisteredDevice Suite', () {

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/external_biometric_device.dart';
-import 'package:mybiometric_app/services/terminal_attendance_sync_service.dart';
+import 'package:mybiometric/domain/models/external_biometric_device.dart';
+import 'package:mybiometric/services/terminal_attendance_sync_service.dart';
 
 void main() {
   group('Terminal Attendance Sync & Deduplication Suite', () {

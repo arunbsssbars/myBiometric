@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/terminal_automation_rule.dart';
+import 'package:mybiometric/domain/models/terminal_automation_rule.dart';
 
 void main() {
   group('Terminal Scheduled Automation & Jitter Engine Suite', () {

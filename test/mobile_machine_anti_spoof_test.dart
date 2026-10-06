@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/services/mobile_machine_anti_spoof_service.dart';
+import 'package:mybiometric/services/mobile_machine_anti_spoof_service.dart';
 
 void main() {
   group('MobileMachineAntiSpoofService Tests', () {

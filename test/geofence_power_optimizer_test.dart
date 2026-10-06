@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/enterprise_branch.dart';
-import 'package:mybiometric_app/domain/models/geofence_power_mode.dart';
-import 'package:mybiometric_app/services/geofence_power_optimizer_service.dart';
+import 'package:mybiometric/domain/models/enterprise_branch.dart';
+import 'package:mybiometric/domain/models/geofence_power_mode.dart';
+import 'package:mybiometric/services/geofence_power_optimizer_service.dart';
 
 void main() {
   group('GeofencePowerOptimizerService Tests', () {

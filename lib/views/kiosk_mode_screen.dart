@@ -447,7 +447,7 @@ class _KioskModeScreenState extends State<KioskModeScreen> with SingleTickerProv
         return Container(
           decoration: BoxDecoration(
             color: context.colors.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: Column(
@@ -593,7 +593,7 @@ class _KioskModeScreenState extends State<KioskModeScreen> with SingleTickerProv
             title: Row(
               children: [
                 Icon(Icons.lock_outline, color: context.colors.primary),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Text('Admin Exit Lock', style: context.text.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
               ],
             ),

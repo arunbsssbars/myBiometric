@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/regularization_sla.dart';
-import 'package:mybiometric_app/services/regularization_sla_service.dart';
+import 'package:mybiometric/domain/models/regularization_sla.dart';
+import 'package:mybiometric/services/regularization_sla_service.dart';
 
 void main() {
   group('RegularizationSlaService Tests', () {

@@ -198,7 +198,7 @@ class NotificationCenterSheet extends StatelessWidget {
                           onPressed: () {
                             PushNotificationService().markAllAsRead(unreadDocs);
                           },
-                          icon: Icon(Icons.done_all_rounded, size: AppSizes.iconSm),
+                          icon: const Icon(Icons.done_all_rounded, size: AppSizes.iconSm),
                           label: Text('Mark all read', style: textTheme.labelSmall),
                         );
                       },

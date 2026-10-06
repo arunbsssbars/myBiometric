@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/terminal_access_schedule.dart';
+import 'package:mybiometric/domain/models/terminal_access_schedule.dart';
 
 void main() {
   group('Terminal Access Schedule & Time-Zone Privilege Suite', () {

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/mobile_machine_punch_session.dart';
-import 'package:mybiometric_app/services/mobile_machine_punch_orchestrator_service.dart';
+import 'package:mybiometric/domain/models/mobile_machine_punch_session.dart';
+import 'package:mybiometric/services/mobile_machine_punch_orchestrator_service.dart';
 
 void main() {
   group('MobileMachinePunchOrchestratorService Tests', () {

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/hrms_webhook_config.dart';
-import 'package:mybiometric_app/services/hrms_webhook_dispatcher_service.dart';
+import 'package:mybiometric/domain/models/hrms_webhook_config.dart';
+import 'package:mybiometric/services/hrms_webhook_dispatcher_service.dart';
 
 void main() {
   group('HrmsWebhookDispatcherService Tests', () {

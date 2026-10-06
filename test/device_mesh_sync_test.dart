@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/device_mesh_sync_record.dart';
-import 'package:mybiometric_app/services/device_mesh_sync_service.dart';
+import 'package:mybiometric/domain/models/device_mesh_sync_record.dart';
+import 'package:mybiometric/services/device_mesh_sync_service.dart';
 
 void main() {
   group('DeviceMeshSyncService Suite', () {

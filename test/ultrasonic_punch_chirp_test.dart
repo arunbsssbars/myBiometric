@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/services/ultrasonic_punch_chirp_service.dart';
+import 'package:mybiometric/services/ultrasonic_punch_chirp_service.dart';
 
 void main() {
   group('UltrasonicPunchChirpService Tests', () {

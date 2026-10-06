@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/minmoe_log_search_query.dart';
-import 'package:mybiometric_app/services/hikvision_log_search_service.dart';
+import 'package:mybiometric/domain/models/minmoe_log_search_query.dart';
+import 'package:mybiometric/services/hikvision_log_search_service.dart';
 
 void main() {
   group('HikvisionLogSearchService Suite', () {

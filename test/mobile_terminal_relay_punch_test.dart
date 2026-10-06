@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/mobile_terminal_relay_punch.dart';
-import 'package:mybiometric_app/services/mobile_terminal_relay_punch_service.dart';
+import 'package:mybiometric/domain/models/mobile_terminal_relay_punch.dart';
+import 'package:mybiometric/services/mobile_terminal_relay_punch_service.dart';
 
 void main() {
   group('MobileTerminalRelayPunchService Tests', () {

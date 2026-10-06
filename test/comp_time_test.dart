@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/comp_time_record.dart';
-import 'package:mybiometric_app/services/comp_time_service.dart';
+import 'package:mybiometric/domain/models/comp_time_record.dart';
+import 'package:mybiometric/services/comp_time_service.dart';
 
 void main() {
   group('CompTimeService Tests', () {

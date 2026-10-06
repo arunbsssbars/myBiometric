@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/leave_request.dart';
-import 'package:mybiometric_app/services/absenteeism_reconciliation_service.dart';
+import 'package:mybiometric/domain/models/leave_request.dart';
+import 'package:mybiometric/services/absenteeism_reconciliation_service.dart';
 
 void main() {
   group('Absenteeism Reconciliation Suite', () {

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/terminal_watchdog_incident.dart';
-import 'package:mybiometric_app/services/terminal_watchdog_service.dart';
+import 'package:mybiometric/domain/models/terminal_watchdog_incident.dart';
+import 'package:mybiometric/services/terminal_watchdog_service.dart';
 
 void main() {
   group('TerminalWatchdogService & Incident Evaluation Suite', () {

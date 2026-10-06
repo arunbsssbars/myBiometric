@@ -42,7 +42,7 @@ class _MobileSelfieTerminalEnrollmentCardState
       employeeId: widget.employeeId,
       enterpriseId: widget.enterpriseId,
       employeeName: widget.employeeName,
-      base64FaceJpeg: 'data:image/jpeg;base64,' + 'A' * 600,
+      base64FaceJpeg: 'data:image/jpeg;base64,${'A' * 600}',
       faceFeatureVector: dummyEmbeddings,
       enrolledAt: DateTime.now(),
     );

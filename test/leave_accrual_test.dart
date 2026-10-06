@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/leave_accrual_policy.dart';
-import 'package:mybiometric_app/services/leave_accrual_service.dart';
+import 'package:mybiometric/domain/models/leave_accrual_policy.dart';
+import 'package:mybiometric/services/leave_accrual_service.dart';
 
 void main() {
   group('LeaveAccrualService Tests', () {

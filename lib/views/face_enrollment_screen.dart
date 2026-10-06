@@ -250,7 +250,7 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
                     title: Row(
                       children: [
                         Icon(Icons.shield_outlined, color: context.colors.primary),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Text('Admin Authorization', style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                       ],
                     ),
@@ -427,7 +427,7 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               CircularProgressIndicator(color: context.colors.primary),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               Text(
                 "Initializing Camera & Neural Engine...",
                 style: context.text.titleMedium?.copyWith(color: context.colors.onSurfaceVariant),

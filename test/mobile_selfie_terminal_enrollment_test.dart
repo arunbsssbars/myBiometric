@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/mobile_selfie_terminal_enrollment.dart';
-import 'package:mybiometric_app/services/mobile_selfie_terminal_enrollment_service.dart';
+import 'package:mybiometric/domain/models/mobile_selfie_terminal_enrollment.dart';
+import 'package:mybiometric/services/mobile_selfie_terminal_enrollment_service.dart';
 
 void main() {
   group('MobileSelfieTerminalEnrollmentService Tests', () {

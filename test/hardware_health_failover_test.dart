@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/external_hardware_device.dart';
-import 'package:mybiometric_app/services/hardware_health_failover_service.dart';
+import 'package:mybiometric/domain/models/external_hardware_device.dart';
+import 'package:mybiometric/services/hardware_health_failover_service.dart';
 
 void main() {
   group('HardwareHealthFailoverService Unit Tests', () {

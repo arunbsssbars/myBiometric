@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/core/design_system/design_system.dart';
-import 'package:mybiometric_app/views/employee_presence_tile.dart';
-import 'package:mybiometric_app/services/break_tracking_service.dart';
+import 'package:mybiometric/core/design_system/design_system.dart';
+import 'package:mybiometric/views/employee_presence_tile.dart';
+import 'package:mybiometric/services/break_tracking_service.dart';
 
 void main() {
   const viewports = <String, Size>{

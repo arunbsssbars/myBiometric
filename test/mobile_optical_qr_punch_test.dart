@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/services/mobile_optical_qr_punch_service.dart';
+import 'package:mybiometric/services/mobile_optical_qr_punch_service.dart';
 
 void main() {
   group('MobileOpticalQrPunchService Suite', () {

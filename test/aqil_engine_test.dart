@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/core/design_system/design_system.dart';
+import 'package:mybiometric/core/design_system/design_system.dart';
 import 'helpers/ui_test_helper.dart';
 
 void main() {

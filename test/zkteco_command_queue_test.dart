@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/zkteco_machine_command.dart';
-import 'package:mybiometric_app/services/zkteco_command_queue_service.dart';
+import 'package:mybiometric/domain/models/zkteco_machine_command.dart';
+import 'package:mybiometric/services/zkteco_command_queue_service.dart';
 
 void main() {
   group('ZktecoCommandQueueService Suite', () {

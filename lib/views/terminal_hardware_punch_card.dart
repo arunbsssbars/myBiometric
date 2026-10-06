@@ -33,7 +33,7 @@ class _TerminalHardwarePunchCardState extends State<TerminalHardwarePunchCard> {
   BiometricTerminalDevice? _selectedDevice;
   DeviceAuthMode _selectedAuthMode = DeviceAuthMode.face;
   bool _isInjecting = false;
-  double _similarityScore = 99.4;
+  final double _similarityScore = 99.4;
 
   @override
   void initState() {

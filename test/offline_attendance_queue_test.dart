@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:mybiometric_app/services/offline_attendance_queue_service.dart';
+import 'package:mybiometric/services/offline_attendance_queue_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

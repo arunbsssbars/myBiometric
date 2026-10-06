@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/department_overtime_budget.dart';
-import 'package:mybiometric_app/services/department_overtime_budget_service.dart';
+import 'package:mybiometric/domain/models/department_overtime_budget.dart';
+import 'package:mybiometric/services/department_overtime_budget_service.dart';
 
 void main() {
   group('DepartmentOvertimeBudgetService Tests', () {

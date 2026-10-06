@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/attendance_regularization_request.dart';
-import 'package:mybiometric_app/services/attendance_regularization_batch_service.dart';
+import 'package:mybiometric/domain/models/attendance_regularization_request.dart';
+import 'package:mybiometric/services/attendance_regularization_batch_service.dart';
 
 void main() {
   group('AttendanceRegularizationBatchService Tests', () {

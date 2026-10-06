@@ -143,7 +143,7 @@ class EmployeeDailySession {
       );
     }
 
-    DateTime _parseTs(dynamic raw) {
+    DateTime parseTs(dynamic raw) {
       if (raw is Timestamp) return raw.toDate();
       if (raw is DateTime) return raw;
       if (raw is String) return DateTime.tryParse(raw) ?? DateTime(0);
@@ -153,8 +153,8 @@ class EmployeeDailySession {
     // Sort logs chronologically (oldest to newest)
     final sortedLogs = List<Map<String, dynamic>>.from(employeeLogsToday);
     sortedLogs.sort((a, b) {
-      final tA = _parseTs(a['timestamp']);
-      final tB = _parseTs(b['timestamp']);
+      final tA = parseTs(a['timestamp']);
+      final tB = parseTs(b['timestamp']);
       return tA.compareTo(tB);
     });
 

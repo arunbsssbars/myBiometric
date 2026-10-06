@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/external_biometric_device.dart';
-import 'package:mybiometric_app/services/terminal_data_export_service.dart';
+import 'package:mybiometric/domain/models/external_biometric_device.dart';
+import 'package:mybiometric/services/terminal_data_export_service.dart';
 
 void main() {
   group('Terminal Data Export & HRMS Integration Suite', () {

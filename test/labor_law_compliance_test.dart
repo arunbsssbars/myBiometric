@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/labor_law_compliance.dart';
-import 'package:mybiometric_app/services/labor_law_compliance_service.dart';
+import 'package:mybiometric/domain/models/labor_law_compliance.dart';
+import 'package:mybiometric/services/labor_law_compliance_service.dart';
 
 void main() {
   group('LaborLawComplianceService & Rest Enforcement Tests', () {

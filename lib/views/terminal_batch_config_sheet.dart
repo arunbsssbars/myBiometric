@@ -283,7 +283,7 @@ class _TerminalBatchConfigSheetState extends State<TerminalBatchConfigSheet> {
                               height: AppSizes.iconSm,
                               child: CircularProgressIndicator(color: colors.onPrimary, strokeWidth: 2),
                             )
-                          : Icon(Icons.send_rounded, size: AppSizes.iconSm),
+                          : const Icon(Icons.send_rounded, size: AppSizes.iconSm),
                       label: Text(
                         _isPushing ? 'Pushing...' : 'Deploy Config',
                         maxLines: 1,

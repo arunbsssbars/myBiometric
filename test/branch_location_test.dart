@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/enterprise_branch.dart';
-import 'package:mybiometric_app/services/branch_location_service.dart';
+import 'package:mybiometric/domain/models/enterprise_branch.dart';
+import 'package:mybiometric/services/branch_location_service.dart';
 
 void main() {
   group('Enterprise Branch & Multi-Location Geofence Suite', () {

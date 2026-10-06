@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/terminal_live_punch_receipt.dart';
-import 'package:mybiometric_app/services/terminal_live_punch_receipt_service.dart';
+import 'package:mybiometric/domain/models/terminal_live_punch_receipt.dart';
+import 'package:mybiometric/services/terminal_live_punch_receipt_service.dart';
 
 void main() {
   group('TerminalLivePunchReceiptService Tests', () {

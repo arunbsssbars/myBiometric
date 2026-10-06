@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/terminal_compliance_scorecard.dart';
-import 'package:mybiometric_app/services/terminal_compliance_audit_service.dart';
+import 'package:mybiometric/domain/models/terminal_compliance_scorecard.dart';
+import 'package:mybiometric/services/terminal_compliance_audit_service.dart';
 
 void main() {
   group('TerminalComplianceAuditService Suite', () {

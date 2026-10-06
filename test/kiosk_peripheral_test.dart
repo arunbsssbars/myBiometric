@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/kiosk_peripheral_status.dart';
-import 'package:mybiometric_app/services/kiosk_peripheral_service.dart';
+import 'package:mybiometric/domain/models/kiosk_peripheral_status.dart';
+import 'package:mybiometric/services/kiosk_peripheral_service.dart';
 
 void main() {
   group('KioskPeripheralService Tests', () {

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/device_mtls_certificate.dart';
-import 'package:mybiometric_app/services/device_certificate_service.dart';
+import 'package:mybiometric/domain/models/device_mtls_certificate.dart';
+import 'package:mybiometric/services/device_certificate_service.dart';
 
 void main() {
   group('DeviceCertificateService Suite', () {

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/ble_terminal_proximity_beacon.dart';
-import 'package:mybiometric_app/services/ble_terminal_proximity_service.dart';
+import 'package:mybiometric/domain/models/ble_terminal_proximity_beacon.dart';
+import 'package:mybiometric/services/ble_terminal_proximity_service.dart';
 
 void main() {
   group('BleTerminalProximityService Tests', () {

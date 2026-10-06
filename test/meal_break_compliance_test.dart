@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/meal_break_policy.dart';
-import 'package:mybiometric_app/services/meal_break_compliance_service.dart';
+import 'package:mybiometric/domain/models/meal_break_policy.dart';
+import 'package:mybiometric/services/meal_break_compliance_service.dart';
 
 void main() {
   group('MealBreakComplianceService Tests', () {

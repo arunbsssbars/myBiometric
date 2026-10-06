@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/device_telemetry_export_bundle.dart';
-import 'package:mybiometric_app/services/device_telemetry_export_service.dart';
+import 'package:mybiometric/domain/models/device_telemetry_export_bundle.dart';
+import 'package:mybiometric/services/device_telemetry_export_service.dart';
 
 void main() {
   group('DeviceTelemetryExportService Suite', () {

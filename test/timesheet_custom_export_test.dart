@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/timesheet_export_template.dart';
-import 'package:mybiometric_app/services/payroll_export_service.dart';
-import 'package:mybiometric_app/services/timesheet_custom_export_service.dart';
+import 'package:mybiometric/domain/models/timesheet_export_template.dart';
+import 'package:mybiometric/services/payroll_export_service.dart';
+import 'package:mybiometric/services/timesheet_custom_export_service.dart';
 
 void main() {
   group('TimesheetCustomExportService Tests', () {

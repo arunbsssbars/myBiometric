@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/evacuation_roster.dart';
-import 'package:mybiometric_app/services/evacuation_rollcall_service.dart';
+import 'package:mybiometric/domain/models/evacuation_roster.dart';
+import 'package:mybiometric/services/evacuation_rollcall_service.dart';
 
 void main() {
   group('EvacuationRollcallService Tests', () {

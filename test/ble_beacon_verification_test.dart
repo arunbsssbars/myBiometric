@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/ble_beacon_profile.dart';
-import 'package:mybiometric_app/services/ble_beacon_verification_service.dart';
+import 'package:mybiometric/domain/models/ble_beacon_profile.dart';
+import 'package:mybiometric/services/ble_beacon_verification_service.dart';
 
 void main() {
   group('BleBeaconVerificationService Tests', () {

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/external_biometric_device.dart';
-import 'package:mybiometric_app/services/terminal_event_payload_synthesizer.dart';
+import 'package:mybiometric/domain/models/external_biometric_device.dart';
+import 'package:mybiometric/services/terminal_event_payload_synthesizer.dart';
 
 void main() {
   group('Terminal Attendance Injector & Hardware Bridge Suite', () {

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/external_biometric_device.dart';
-import 'package:mybiometric_app/domain/models/terminal_live_alert.dart';
-import 'package:mybiometric_app/services/terminal_live_alert_stream_service.dart';
+import 'package:mybiometric/domain/models/external_biometric_device.dart';
+import 'package:mybiometric/domain/models/terminal_live_alert.dart';
+import 'package:mybiometric/services/terminal_live_alert_stream_service.dart';
 
 void main() {
   group('Terminal Live Alert Stream Suite', () {

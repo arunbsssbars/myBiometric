@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/services/shift_swap_validation_service.dart';
+import 'package:mybiometric/services/shift_swap_validation_service.dart';
 
 void main() {
   group('ShiftSwapValidationService Tests', () {

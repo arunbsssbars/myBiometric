@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/services/mobile_terminal_sync_drain_service.dart';
+import 'package:mybiometric/services/mobile_terminal_sync_drain_service.dart';
 
 void main() {
   group('MobileTerminalSyncDrainService Tests', () {

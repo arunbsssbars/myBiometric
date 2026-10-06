@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/shift_differential_policy.dart';
-import 'package:mybiometric_app/services/shift_differential_service.dart';
+import 'package:mybiometric/domain/models/shift_differential_policy.dart';
+import 'package:mybiometric/services/shift_differential_service.dart';
 
 void main() {
   group('ShiftDifferentialService Tests', () {

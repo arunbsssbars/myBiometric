@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/external_biometric_device.dart';
-import 'package:mybiometric_app/domain/models/terminal_auxiliary_reader.dart';
-import 'package:mybiometric_app/services/terminal_wiegand_osdp_bridge_service.dart';
+import 'package:mybiometric/domain/models/external_biometric_device.dart';
+import 'package:mybiometric/domain/models/terminal_auxiliary_reader.dart';
+import 'package:mybiometric/services/terminal_wiegand_osdp_bridge_service.dart';
 
 void main() {
   group('Terminal Wiegand & OSDP Auxiliary Reader Bridge Suite', () {

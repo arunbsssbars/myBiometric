@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/services/terminal_user_sync_service.dart';
+import 'package:mybiometric/services/terminal_user_sync_service.dart';
 
 void main() {
   group('Terminal Roster Sync Engine Suite', () {

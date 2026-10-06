@@ -297,7 +297,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
                         foregroundColor: colors.onPrimary,
                       ),
                       onPressed: () => _showAddEditBranchDialog(),
-                      icon: Icon(Icons.add_rounded, size: AppSizes.iconSm),
+                      icon: const Icon(Icons.add_rounded, size: AppSizes.iconSm),
                       label: const Text('Add Primary Branch'),
                     ),
                   ],

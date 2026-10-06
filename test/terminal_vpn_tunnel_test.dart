@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/terminal_vpn_tunnel_config.dart';
-import 'package:mybiometric_app/services/terminal_vpn_tunnel_service.dart';
+import 'package:mybiometric/domain/models/terminal_vpn_tunnel_config.dart';
+import 'package:mybiometric/services/terminal_vpn_tunnel_service.dart';
 
 void main() {
   group('TerminalVpnTunnelService Suite', () {

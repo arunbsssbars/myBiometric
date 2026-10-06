@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/delegation_of_authority.dart';
-import 'package:mybiometric_app/services/delegation_of_authority_service.dart';
+import 'package:mybiometric/domain/models/delegation_of_authority.dart';
+import 'package:mybiometric/services/delegation_of_authority_service.dart';
 
 void main() {
   group('DelegationOfAuthorityService Tests', () {

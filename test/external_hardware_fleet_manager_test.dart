@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/services/external_hardware_fleet_manager_service.dart';
+import 'package:mybiometric/services/external_hardware_fleet_manager_service.dart';
 
 void main() {
   group('ExternalHardwareFleetManagerService Suite', () {

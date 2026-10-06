@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/terminal_alarm_event.dart';
-import 'package:mybiometric_app/services/terminal_alarm_event_monitor.dart';
+import 'package:mybiometric/domain/models/terminal_alarm_event.dart';
+import 'package:mybiometric/services/terminal_alarm_event_monitor.dart';
 
 void main() {
   group('Terminal Alarm Event & Tamper Monitor Suite', () {

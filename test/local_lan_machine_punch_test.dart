@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/local_lan_machine_punch_request.dart';
-import 'package:mybiometric_app/services/local_lan_machine_punch_service.dart';
+import 'package:mybiometric/domain/models/local_lan_machine_punch_request.dart';
+import 'package:mybiometric/services/local_lan_machine_punch_service.dart';
 
 void main() {
   group('LocalLanMachinePunchService Tests', () {

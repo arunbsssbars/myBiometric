@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/services/mobile_terminal_telemetry_service.dart';
+import 'package:mybiometric/services/mobile_terminal_telemetry_service.dart';
 
 void main() {
   group('MobileTerminalTelemetryService Tests', () {

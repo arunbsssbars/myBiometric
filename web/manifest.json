@@ -1,6 +1,6 @@
 {
-    "name": "mybiometric_app",
-    "short_name": "mybiometric_app",
+    "name": "myBiometric",
+    "short_name": "myBiometric",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

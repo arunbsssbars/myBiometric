@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/minmoe_alert_event.dart';
-import 'package:mybiometric_app/services/hikvision_alert_stream_parser_service.dart';
+import 'package:mybiometric/domain/models/minmoe_alert_event.dart';
+import 'package:mybiometric/services/hikvision_alert_stream_parser_service.dart';
 
 void main() {
   group('HikvisionAlertStreamParserService Suite', () {

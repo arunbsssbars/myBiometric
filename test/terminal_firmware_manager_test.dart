@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/external_biometric_device.dart';
-import 'package:mybiometric_app/domain/models/terminal_batch_config.dart';
-import 'package:mybiometric_app/services/terminal_firmware_manager_service.dart';
+import 'package:mybiometric/domain/models/external_biometric_device.dart';
+import 'package:mybiometric/domain/models/terminal_batch_config.dart';
+import 'package:mybiometric/services/terminal_firmware_manager_service.dart';
 
 void main() {
   group('Terminal Batch Configuration & Firmware OTA Manager Suite', () {

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/terminal_card_credential.dart';
+import 'package:mybiometric/domain/models/terminal_card_credential.dart';
 
 void main() {
   group('Terminal Card Credential & RFID Binding Suite', () {

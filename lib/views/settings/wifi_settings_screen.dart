@@ -197,7 +197,7 @@ class _WifiSettingsScreenState extends State<WifiSettingsScreen> {
                       const SizedBox(width: AppSpacing.sm),
                       FilledButton.icon(
                         onPressed: _addSsid,
-                        icon: Icon(Icons.add_rounded, size: AppSizes.iconSm),
+                        icon: const Icon(Icons.add_rounded, size: AppSizes.iconSm),
                         label: Text('Add', style: textTheme.labelLarge),
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.md),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mybiometric_app/domain/models/early_departure_policy.dart';
-import 'package:mybiometric_app/services/early_departure_service.dart';
+import 'package:mybiometric/domain/models/early_departure_policy.dart';
+import 'package:mybiometric/services/early_departure_service.dart';
 
 void main() {
   group('EarlyDepartureService Tests', () {
