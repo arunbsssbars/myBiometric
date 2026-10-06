@@ -49,3 +49,6 @@ app.*.map.json
 
 build/ios_derived
 
+
+build/ios_derived
+
