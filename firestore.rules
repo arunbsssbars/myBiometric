@@ -1,0 +1,461 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: userId (Firebase Auth UID)
+// Fields:
+//   - email: string (required, valid email format)
+//   - role: string (required, 'employee' | 'enterprise_admin' | 'admin' | 'manager' | 'supervisor')
+//   - name / fullName: string (optional, 1-100 chars)
+//   - enterpriseId: string (optional, 1-50 chars)
+//   - employeeId: string (optional, 1-50 chars)
+//   - department: string (optional, 1-100 chars)
+//   - assignedShift: string (optional, 1-100 chars)
+//   - biometricsEnrolled: bool (optional)
+//   - facialSignature: list of numbers (optional, max 512 entries)
+//   - biometricEnrolledAt: timestamp (optional)
+//   - fcmToken: string (optional, max 300 chars)
+//   - fcmUpdatedAt: timestamp (optional)
+//   - adminPin: string (optional, max 8 chars)
+//   - employeePin: string (optional, max 10 chars)
+//   - allowedVerificationMethods: list of strings (optional, max 10 entries)
+//   - createdAt: timestamp (optional)
+//   - updatedAt: timestamp (optional)
+//
+// Collection: enterprises
+// Document ID: enterpriseId / code (alphanumeric uppercase, 2-50 chars)
+// Fields:
+//   - name: string (required, 1-100 chars)
+//   - code: string (required, matching document ID)
+//   - adminUid: string (required, UID of creator)
+//   - adminPin / kioskPin: string (optional, 4-8 chars)
+//   - createdAt: timestamp (required)
+//   - officeLatitude / latitude: number (optional, -90 to 90)
+//   - officeLongitude / longitude: number (optional, -180 to 180)
+//   - geofenceRadiusMeters: number (optional, 10 to 50000)
+//   - shiftSchedule: map (optional, shift rules)
+//   - wifiGeofencingEnabled: bool (optional)
+//   - allowedWifiSsids: list of strings (optional)
+//
+// Subcollection: enterprises/{enterpriseId}/employees
+// Document ID: employeeId (alphanumeric, 1-50 chars)
+//
+// Subcollection: enterprises/{enterpriseId}/audit_logs
+// Document ID: logId (auto-generated)
+//
+// Collection: attendance_logs
+// Document ID: logId (auto-generated)
+// Fields:
+//   - userId: string (required, 1-128 chars)
+//   - enterpriseId: string (required, 1-50 chars)
+//   - type: string (required, 'PUNCH_IN' | 'PUNCH_OUT' | 'START_BREAK' | 'END_BREAK')
+//   - timestamp: timestamp (required)
+//   - verifiedVia: string (required, 'FACE_ID' | 'MANUAL' | 'KIOSK' | 'KIOSK_PIN' | 'MOBILE_GPS' | 'OFFICE_WIFI' | 'PHONE_BIOMETRICS' | 'REGULARIZED_BY_ADMIN' | 'ADMIN_MANUAL' | 'MANUAL_OVERRIDE')
+//   - confidenceScore: number (optional, 0.0 to 1.0)
+//   - shiftDurationMinutes: int (optional, >= 0)
+//   - latitude: number (optional)
+//   - longitude: number (optional)
+//   - distanceFromOfficeMeters: number (optional, >= 0)
+//   - withinGeofence: bool (optional)
+//   - employeeName: string (optional, max 100 chars)
+//   - employeeId: string (optional, max 50 chars)
+//   - punchStatus: string (optional)
+//   - breakType: string (optional, max 50 chars)
+//   - lateMinutes: int (optional, >= 0)
+//   - earlyMinutes: int (optional, >= 0)
+//   - overtimeMinutes: int (optional, >= 0)
+//   - workStatus: string (optional)
+//
+// Collection: approval_requests
+// Document ID: requestId (auto-generated)
+// Fields:
+//   - userId: string (required, owner UID)
+//   - enterpriseId: string (required, enterprise code)
+//   - employeeName: string (required, 1-100 chars)
+//   - employeeId: string (required, 1-50 chars)
+//   - shiftDate: timestamp (required)
+//   - clockInTime: timestamp (required)
+//   - requestedClockOutTime: timestamp (required)
+//   - requestedDurationMinutes: int (required, >= 0)
+//   - reason: string (required, 1-500 chars)
+//   - status: string (required, 'PENDING' | 'APPROVED' | 'REJECTED')
+//   - createdAt: timestamp (required)
+//   - reviewedBy: string (optional)
+//   - reviewedAt: timestamp (optional)
+//   - reviewComment: string (optional, max 500 chars)
+//
+// Collection: leave_requests
+// Document ID: leaveId (auto-generated)
+// Fields:
+//   - userId: string (required, owner UID)
+//   - enterpriseId: string (required, enterprise code)
+//   - employeeName: string (required)
+//   - employeeId: string (required)
+//   - leaveType: string (required, 'CASUAL' | 'SICK' | 'PAID' | 'WFH' | 'UNPAID')
+//   - startDate: timestamp (required)
+//   - endDate: timestamp (required)
+//   - daysCount: int (required)
+//   - reason: string (required)
+//   - status: string (required, 'PENDING' | 'APPROVED' | 'REJECTED')
+//   - appliedAt: timestamp (required)
+//   - reviewedAt: timestamp (optional)
+//   - reviewedBy: string (optional)
+//   - reviewNotes: string (optional)
+//
+// Collection: notifications
+// Document ID: notificationId (auto-generated)
+// Fields:
+//   - target: string (required, 'USER' | 'ENTERPRISE_ADMIN')
+//   - userId: string (optional, recipient UID if target == USER)
+//   - enterpriseId: string (optional, enterprise code if target == ENTERPRISE_ADMIN)
+//   - title: string (required, 1-150 chars)
+//   - body: string (required, 1-1000 chars)
+//   - type: string (required, 'REGULARIZATION_REQUEST' | 'REGULARIZATION_APPROVED' | 'REGULARIZATION_REJECTED' | 'GEOFENCE_BREACH' | 'DAILY_RECONCILIATION_SUMMARY' | 'LEAVE_STATUS_UPDATE' | 'LEAVE_APPLICATION' | 'LEAVE_APPROVED' | 'LEAVE_REJECTED')
+//   - read: bool (required)
+//   - createdAt: timestamp (required)
+//   - reconciliation: map (optional)
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        exists(/databases/$(database)/documents/super_admins/$(request.auth.uid)) ||
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'arunbsssbars@gmail.com')
+      );
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isEnterpriseAdmin(enterpriseId) {
+      return isAuthenticated() && (
+        (exists(/databases/$(database)/documents/enterprises/$(enterpriseId)) &&
+         (get(/databases/$(database)/documents/enterprises/$(enterpriseId)).data.adminUid == request.auth.uid ||
+          ('adminEmail' in get(/databases/$(database)/documents/enterprises/$(enterpriseId)).data &&
+           get(/databases/$(database)/documents/enterprises/$(enterpriseId)).data.adminEmail == request.auth.token.email))) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         (getUserData().role in ['enterprise_admin', 'admin', 'manager']) &&
+         (getUserData().enterpriseId == enterpriseId ||
+          ('linkedEnterprises' in getUserData() && getUserData().linkedEnterprises is list && enterpriseId in getUserData().linkedEnterprises))) ||
+        isSuperAdmin()
+      );
+    }
+
+    function isSameEnterpriseMember(enterpriseId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        getUserData().enterpriseId == enterpriseId;
+    }
+
+    function isValidEmail(email) {
+      return email is string &&
+        email.size() <= 100 &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidOptionalString(field, minLen, maxLen) {
+      return !(field in request.resource.data) ||
+        (request.resource.data[field] is string &&
+         request.resource.data[field].size() >= minLen &&
+         request.resource.data[field].size() <= maxLen);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role']) &&
+        data.email is string &&
+        isValidEmail(data.email) &&
+        data.role in ['employee', 'enterprise_admin', 'admin', 'manager', 'supervisor'] &&
+        isValidOptionalString('name', 0, 100) &&
+        isValidOptionalString('fullName', 0, 100) &&
+        isValidOptionalString('enterpriseId', 0, 50) &&
+        isValidOptionalString('employeeId', 0, 50) &&
+        isValidOptionalString('department', 0, 100) &&
+        isValidOptionalString('assignedShift', 0, 100) &&
+        isValidOptionalString('fcmToken', 0, 300) &&
+        isValidOptionalString('adminPin', 0, 8) &&
+        isValidOptionalString('employeePin', 0, 10) &&
+        (!('biometricsEnrolled' in data) || data.biometricsEnrolled is bool) &&
+        (!('biometricEnrolledAt' in data) || data.biometricEnrolledAt is timestamp) &&
+        (!('createdAt' in data) || data.createdAt is timestamp) &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp) &&
+        (!('fcmUpdatedAt' in data) || data.fcmUpdatedAt is timestamp) &&
+        (!('allowedVerificationMethods' in data) || (data.allowedVerificationMethods is list && data.allowedVerificationMethods.size() <= 10)) &&
+        (!('facialSignature' in data) || (data.facialSignature is list && data.facialSignature.size() <= 512));
+    }
+
+    function isValidEnterprise(data) {
+      return data.keys().hasAll(['name', 'code', 'adminUid']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.code is string && data.code.size() > 0 && data.code.size() <= 50 &&
+        data.adminUid is string && data.adminUid.size() > 0 &&
+        (!('adminPin' in data) || (data.adminPin is string && data.adminPin.size() >= 4 && data.adminPin.size() <= 8)) &&
+        (!('kioskPin' in data) || (data.kioskPin is string && data.kioskPin.size() >= 4 && data.kioskPin.size() <= 8));
+    }
+
+    function isValidAttendanceLog(data) {
+      return data.keys().hasAll(['userId', 'enterpriseId', 'type', 'verifiedVia']) &&
+        data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+        data.enterpriseId is string && data.enterpriseId.size() > 0 && data.enterpriseId.size() <= 50 &&
+        data.type in ['PUNCH_IN', 'PUNCH_OUT', 'START_BREAK', 'END_BREAK'] &&
+        data.verifiedVia in ['FACE_ID', 'MANUAL', 'KIOSK', 'KIOSK_PIN', 'MOBILE_GPS', 'OFFICE_WIFI', 'PHONE_BIOMETRICS', 'REGULARIZED_BY_ADMIN', 'ADMIN_MANUAL', 'MANUAL_OVERRIDE'] &&
+        isValidOptionalString('employeeName', 0, 100) &&
+        isValidOptionalString('employeeId', 0, 50) &&
+        isValidOptionalString('punchStatus', 0, 50) &&
+        isValidOptionalString('workStatus', 0, 50) &&
+        isValidOptionalString('breakType', 0, 50) &&
+        (!('confidenceScore' in data) || data.confidenceScore is number) &&
+        (!('shiftDurationMinutes' in data) || (data.shiftDurationMinutes is int && data.shiftDurationMinutes >= 0));
+    }
+
+    function isValidApprovalRequest(data) {
+      return data.keys().hasAll(['userId', 'enterpriseId', 'employeeName', 'employeeId', 'status', 'reason']) &&
+        data.userId is string && data.userId.size() > 0 &&
+        data.enterpriseId is string && data.enterpriseId.size() > 0 &&
+        data.employeeName is string && data.employeeName.size() > 0 && data.employeeName.size() <= 100 &&
+        data.employeeId is string && data.employeeId.size() > 0 && data.employeeId.size() <= 50 &&
+        data.status in ['PENDING', 'APPROVED', 'REJECTED'] &&
+        data.reason is string && data.reason.size() > 0 && data.reason.size() <= 500 &&
+        (!('reviewComment' in data) || (data.reviewComment is string && data.reviewComment.size() <= 500));
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll(['target', 'title', 'body', 'type', 'read']) &&
+        data.target in ['USER', 'ENTERPRISE_ADMIN'] &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 150 &&
+        data.body is string && data.body.size() > 0 && data.body.size() <= 1000 &&
+        data.type in [
+          'REGULARIZATION_REQUEST',
+          'REGULARIZATION_APPROVED',
+          'REGULARIZATION_REJECTED',
+          'GEOFENCE_BREACH',
+          'DAILY_RECONCILIATION_SUMMARY',
+          'LEAVE_STATUS_UPDATE',
+          'LEAVE_APPLICATION',
+          'LEAVE_APPROVED',
+          'LEAVE_REJECTED'
+        ] &&
+        data.read is bool &&
+        isValidOptionalString('userId', 0, 128) &&
+        isValidOptionalString('enterpriseId', 0, 50) &&
+        (!('reconciliation' in data) || data.reconciliation is map);
+    }
+
+    // ===============================================================
+    // Collection Match Rules
+    // ===============================================================
+
+    // SUPER ADMINS COLLECTION
+    match /super_admins/{adminId} {
+      allow read: if isSuperAdmin();
+      allow write: if isSuperAdmin() || (request.auth.token.email != null && request.auth.token.email.lower() == 'arunbsssbars@gmail.com');
+    }
+
+    // AUDIT LOGS (Immutable system logs)
+    match /audit_logs/{logId} {
+      allow read, create: if isSuperAdmin();
+      allow update, delete: if false;
+    }
+
+    // USERS COLLECTION
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (
+        isOwner(userId) ||
+        isSuperAdmin() ||
+        resource.data.enterpriseId != null
+      );
+
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (
+        request.auth.uid == userId ||
+        isSuperAdmin() ||
+        (request.resource.data.enterpriseId != null && (
+          isEnterpriseAdmin(request.resource.data.enterpriseId) ||
+          isAuthenticated()
+        ))
+      );
+
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (
+        isOwner(userId) ||
+        isSuperAdmin() ||
+        (resource.data.enterpriseId != null && isEnterpriseAdmin(resource.data.enterpriseId)) ||
+        (request.resource.data.enterpriseId != null && isEnterpriseAdmin(request.resource.data.enterpriseId))
+      );
+
+      allow delete: if isSuperAdmin() || (
+        resource.data.enterpriseId != null && isEnterpriseAdmin(resource.data.enterpriseId)
+      );
+    }
+
+    // ENTERPRISES COLLECTION
+    match /enterprises/{enterpriseId} {
+      // Authenticated users can view enterprise details (needed to join or verify workspace code)
+      allow read: if isAuthenticated();
+
+      // Authenticated user creates new enterprise as the admin
+      allow create: if isAuthenticated() &&
+        request.resource.data.adminUid == request.auth.uid &&
+        request.resource.data.code == enterpriseId &&
+        isValidEnterprise(request.resource.data) &&
+        !exists(/databases/$(database)/documents/enterprises/$(enterpriseId));
+
+      // Enterprise admin, enterprise creator, or super admin can update configuration
+      allow update: if isAuthenticated() && (
+        isSuperAdmin() ||
+        isEnterpriseAdmin(enterpriseId) ||
+        resource.data.adminUid == request.auth.uid
+      );
+
+      allow delete: if isSuperAdmin() || isEnterpriseAdmin(enterpriseId) || resource.data.adminUid == request.auth.uid;
+
+      // Enterprise employees subcollection
+      match /employees/{employeeId} {
+        allow read: if isAuthenticated();
+        allow create, update, delete: if isAuthenticated() && (
+          isEnterpriseAdmin(enterpriseId) ||
+          isSuperAdmin() ||
+          isSameEnterpriseMember(enterpriseId)
+        );
+      }
+
+      // IMMUTABLE ENTERPRISE AUDIT LOGS (Compliance & SOC 2 audit trail)
+      match /audit_logs/{logId} {
+        // Enterprise admins and Super Admins can read audit logs for their enterprise
+        allow read: if isAuthenticated() && (
+          isEnterpriseAdmin(enterpriseId) ||
+          isSuperAdmin()
+        );
+
+        // Authenticated users can create audit log entries
+        allow create: if isAuthenticated();
+
+        // Strictly IMMUTABLE: Updates and deletions are forbidden
+        allow update, delete: if false;
+      }
+    }
+
+    // ATTENDANCE LOGS COLLECTION
+    match /attendance_logs/{logId} {
+      // User can read their own logs; Enterprise Admin can read company logs
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isEnterpriseAdmin(resource.data.enterpriseId) ||
+        isSuperAdmin() ||
+        (resource.data.enterpriseId != null && isSameEnterpriseMember(resource.data.enterpriseId))
+      );
+
+      // Employee logs their own punch, or authorized Kiosk terminal logs punch for their enterprise member
+      allow create: if isAuthenticated() &&
+        isValidAttendanceLog(request.resource.data) && (
+          request.resource.data.userId == request.auth.uid ||
+          isSameEnterpriseMember(request.resource.data.enterpriseId)
+        );
+
+      // Only Enterprise Admin or Super Admin can edit or delete logs (e.g. for regularization)
+      allow update, delete: if isAuthenticated() && (
+        isEnterpriseAdmin(resource.data.enterpriseId) ||
+        isSuperAdmin()
+      );
+    }
+
+    // APPROVAL REQUESTS COLLECTION (Timesheet Regularization)
+    match /approval_requests/{requestId} {
+      // Employee reads their own requests; Enterprise Admin reads requests for their enterprise
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isEnterpriseAdmin(resource.data.enterpriseId) ||
+        isSuperAdmin()
+      );
+
+      // Employee submits their own clock-out regularization request
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'PENDING' &&
+        isValidApprovalRequest(request.resource.data);
+
+      // Enterprise admin approves/rejects, or employee updates pending request without changing status
+      allow update: if isAuthenticated() && (
+        isEnterpriseAdmin(resource.data.enterpriseId) ||
+        isSuperAdmin() ||
+        (resource.data.userId == request.auth.uid &&
+         resource.data.status == 'PENDING' &&
+         request.resource.data.status == 'PENDING' &&
+         isValidApprovalRequest(request.resource.data))
+      );
+
+      allow delete: if isAuthenticated() && (
+        isEnterpriseAdmin(resource.data.enterpriseId) ||
+        isSuperAdmin()
+      );
+    }
+
+    // LEAVE REQUESTS COLLECTION (Employee Time-Off & Approvals)
+    match /leave_requests/{leaveId} {
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isEnterpriseAdmin(resource.data.enterpriseId) ||
+        isSuperAdmin()
+      );
+
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == request.auth.uid ||
+        isEnterpriseAdmin(request.resource.data.enterpriseId) ||
+        isSuperAdmin()
+      );
+
+      allow update: if isAuthenticated() && (
+        isEnterpriseAdmin(resource.data.enterpriseId) ||
+        isSuperAdmin() ||
+        (resource.data.userId == request.auth.uid && resource.data.status == 'PENDING')
+      );
+
+      allow delete: if isAuthenticated() && (
+        isEnterpriseAdmin(resource.data.enterpriseId) ||
+        isSuperAdmin()
+      );
+    }
+
+    // NOTIFICATIONS COLLECTION (Push Alerts & In-App Feed)
+    match /notifications/{notificationId} {
+      // Recipient user or enterprise admin can read alerts
+      allow read: if isAuthenticated() && (
+        (resource.data.target == 'USER' && resource.data.userId == request.auth.uid) ||
+        (resource.data.target == 'ENTERPRISE_ADMIN') ||
+        isSuperAdmin()
+      );
+
+      // System, employee, or kiosk dispatches notifications
+      allow create: if isAuthenticated() && isValidNotification(request.resource.data);
+
+      // Recipient or enterprise admin updates notification
+      allow update: if isAuthenticated() && (
+        (resource.data.target == 'USER' && resource.data.userId == request.auth.uid) ||
+        (resource.data.target == 'ENTERPRISE_ADMIN') ||
+        isSuperAdmin()
+      );
+
+      allow delete: if isAuthenticated();
+    }
+  }
+}

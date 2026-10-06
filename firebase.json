@@ -1,0 +1,43 @@
+{
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "officebiometric-e15fd",
+          "appId": "1:774828276191:android:8967dde9623717ef5cec6a",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "officebiometric-e15fd",
+          "configurations": {
+            "android": "1:774828276191:android:8967dde9623717ef5cec6a",
+            "ios": "1:774828276191:ios:f2db734aeea7d5295cec6a",
+            "macos": "1:774828276191:ios:f2db734aeea7d5295cec6a",
+            "web": "1:774828276191:web:0566ded9f0deaf995cec6a",
+            "windows": "1:774828276191:web:8b267902b25ec1105cec6a"
+          }
+        }
+      }
+    }
+  }
+}
