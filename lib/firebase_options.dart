@@ -42,12 +42,12 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyC0cx-015ZNc0PQW_Zdfu81a3rRmpf_peE',
-    appId: '1:774828276191:web:0566ded9f0deaf995cec6a',
+    appId: '1:774828276191:web:8b267902b25ec1105cec6a',
     messagingSenderId: '774828276191',
     projectId: 'officebiometric-e15fd',
     authDomain: 'officebiometric-e15fd.firebaseapp.com',
     storageBucket: 'officebiometric-e15fd.firebasestorage.app',
-    measurementId: 'G-BEMB9KZQ8V',
+    measurementId: 'G-FJSLPF3L9N',
   );
 
   static const FirebaseOptions android = FirebaseOptions(

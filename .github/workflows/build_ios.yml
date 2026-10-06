@@ -25,7 +25,9 @@ jobs:
           pod --version
 
       - name: Install Dependencies
-        run: flutter pub get
+        run: |
+          mkdir -p build/ios/SourcePackages
+          flutter pub get
 
       - name: Create fallback .env file for asset bundling
         run: |
@@ -39,6 +41,7 @@ jobs:
         run: |
           flutter build ios --release --no-codesign --config-only
           cd ios
+          pod install || true
           xcodebuild -workspace Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
@@ -63,3 +66,5 @@ jobs:
           name: flutter-ios-ipa
           path: build/app-release-unsigned.ipa
           retention-days: 7
+
+
