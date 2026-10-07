@@ -39,6 +39,11 @@ jobs:
 
       - name: Build iOS App with Unsigned Signing Allowed
         run: |
+          if [ -f ios/Podfile ]; then
+            cd ios
+            pod install || pod install --repo-update
+            cd ..
+          fi
           flutter build ios --release --no-codesign
 
       - name: Bundle Payload into Unsigned IPA
@@ -46,14 +51,14 @@ jobs:
           mkdir -p build/Payload
           cp -r build/ios/iphoneos/Runner.app build/Payload/ 2>/dev/null || cp -r build/ios_derived/Build/Products/Release-iphoneos/Runner.app build/Payload/
           cd build
-          zip -r -q app-release-unsigned.ipa Payload
+          zip -r -q myBiometric-release-unsigned.ipa Payload
           rm -rf Payload
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: flutter-ios-ipa
-          path: build/app-release-unsigned.ipa
+          name: myBiometric-ios-ipa
+          path: build/myBiometric-release-unsigned.ipa
           retention-days: 7
 
 
