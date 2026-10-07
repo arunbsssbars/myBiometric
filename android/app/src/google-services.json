@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "774828276191",
+    "project_id": "officebiometric-e15fd",
+    "storage_bucket": "officebiometric-e15fd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:774828276191:android:8967dde9623717ef5cec6a",
+        "android_client_info": {
+          "package_name": "com.example.mybiometric_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "774828276191-713io4qcu0c5p0i518mu22vjug78ub34.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.mybiometric_app",
+            "certificate_hash": "908ee37291ac67802c557bd7f4cf836f3c3fba5e"
+          }
+        },
+        {
+          "client_id": "774828276191-3qf012e5vih36hvdtb59v1ko95bgrsu2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBMGVn19w3KTIbzJwOnUpT-EV_jASmwAYE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "774828276191-3qf012e5vih36hvdtb59v1ko95bgrsu2.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "774828276191-d0tl10ucgua57ib6o1m7e2329ucn07b9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.mobileApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
