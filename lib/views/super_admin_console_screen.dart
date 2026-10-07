@@ -62,6 +62,38 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
           ],
         ),
         actions: [
+          InkWell(
+            onTap: () => _showSuperAdminProfileSheet(context),
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFFBBF24).withValues(alpha: 0.6)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircleAvatar(
+                    radius: 12,
+                    backgroundColor: Color(0xFFFBBF24),
+                    child: Text('A', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
+                  const SizedBox(width: 6),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 140),
+                    child: Text(
+                      AuthService().currentUser?.email ?? 'Super Admin',
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           IconButton(
             icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
             tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
@@ -123,6 +155,40 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
   Widget _buildEnterprisesTab() {
     return Column(
       children: [
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF4F46E5).withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF4F46E5).withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.verified_user_rounded, color: Color(0xFF4F46E5), size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    text: 'Super Admin Session: ',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    children: [
+                      TextSpan(
+                        text: AuthService().currentUser?.email ?? 'arunbsssbars@gmail.com',
+                        style: const TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.bold),
+                      ),
+                      const TextSpan(
+                        text: ' • Governing all registered enterprise tenants with platform root authority.',
+                        style: TextStyle(fontWeight: FontWeight.normal, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         _buildSearchBar('Search enterprises by name, code or ID...'),
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
@@ -371,53 +437,67 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF4F46E5),
-                      side: const BorderSide(color: Color(0xFF4F46E5)),
-                    ),
-                    icon: const Icon(Icons.dashboard_rounded, size: 18),
-                    label: const Text(
-                      'Admin MIS',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => EnterpriseAdminDashboardScreen(
-                            enterpriseId: doc.id,
+                  child: Tooltip(
+                    message: 'Open Admin MIS Console (Manage Staff Roster, Shifts, Geofencing & Wi-Fi)',
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF4F46E5),
+                        side: const BorderSide(color: Color(0xFF4F46E5)),
+                      ),
+                      icon: const Icon(Icons.dashboard_rounded, size: 18),
+                      label: const Text(
+                        'Admin MIS',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => EnterpriseAdminDashboardScreen(
+                              enterpriseId: doc.id,
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF4F46E5),
-                    ),
-                    icon: const Icon(Icons.launch_rounded, size: 18),
-                    label: const Text(
-                      'Launch App',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => HomeScreen(
-                            enterpriseId: doc.id,
-                            companyName: name,
+                  child: Tooltip(
+                    message: 'Launch Employee Portal & Kiosk Terminal (Test attendance punches & face scan)',
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF4F46E5),
+                      ),
+                      icon: const Icon(Icons.launch_rounded, size: 18),
+                      label: const Text(
+                        'Launch App',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => HomeScreen(
+                              enterpriseId: doc.id,
+                              companyName: name,
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 6),
+            const Center(
+              child: Text(
+                'Admin MIS: Configure policies & roster  •  Launch App: Employee attendance kiosk',
+                style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w500),
+                textAlign: TextAlign.center,
+              ),
             ),
           ],
         ),
@@ -811,40 +891,90 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Provision New Enterprise', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Company / Enterprise Name *'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4F46E5).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                TextField(
-                  controller: codeCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Company Code * (e.g. ACME)',
-                    hintText: 'ACME',
+                child: const Icon(Icons.add_business_rounded, color: Color(0xFF4F46E5), size: 24),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Provision New Enterprise', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                    Text('Set up tenant organization workspace', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                      labelText: 'Company / Enterprise Name *',
+                      hintText: 'e.g. Acme Technologies Ltd',
+                      prefixIcon: const Icon(Icons.business_rounded),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                    ),
                   ),
-                ),
-                TextField(
-                  controller: emailCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Enterprise Admin Email',
-                    hintText: 'admin@company.com',
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: codeCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: InputDecoration(
+                      labelText: 'Company Join Code *',
+                      hintText: 'e.g. ACME',
+                      prefixIcon: const Icon(Icons.tag_rounded),
+                      helperText: 'Unique identifier used by employees to join this enterprise',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                    ),
                   ),
-                ),
-                TextField(
-                  controller: pinCtrl,
-                  keyboardType: TextInputType.number,
-                  maxLength: 6,
-                  decoration: const InputDecoration(
-                    labelText: 'Default Kiosk Terminal PIN',
-                    counterText: '',
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(
+                      labelText: 'Enterprise Admin Email',
+                      hintText: 'e.g. admin@acme.com',
+                      prefixIcon: const Icon(Icons.alternate_email_rounded),
+                      helperText: 'Assigned administrator assigned to govern this workspace',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: pinCtrl,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    decoration: InputDecoration(
+                      labelText: 'Default Kiosk Terminal PIN',
+                      hintText: '4-6 digits (Default: 1234)',
+                      counterText: '',
+                      prefixIcon: const Icon(Icons.pin_rounded),
+                      helperText: 'Master PIN for unlocking and exiting device kiosks',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -853,6 +983,10 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
               child: const Text('Cancel'),
             ),
             FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF4F46E5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
               onPressed: isSaving
                   ? null
                   : () async {
@@ -860,7 +994,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                       final code = codeCtrl.text.trim().toUpperCase();
                       if (name.isEmpty || code.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please fill all required fields')),
+                          const SnackBar(content: Text('Please fill all required fields (Name & Code)')),
                         );
                         return;
                       }
@@ -897,11 +1031,148 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                         }
                       }
                     },
-              child: isSaving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Provision'),
+              child: isSaving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Provision Enterprise'),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  void _showSuperAdminProfileSheet(BuildContext context) {
+    final user = AuthService().currentUser;
+    final email = user?.email ?? 'arunbsssbars@gmail.com';
+    final uid = user?.uid ?? 'N/A';
+    final isRoot = email.toLowerCase() == 'arunbsssbars@gmail.com';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: const Color(0xFF4F46E5),
+                    child: Text(
+                      email.isNotEmpty ? email[0].toUpperCase() : 'S',
+                      style: const TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          email,
+                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFBBF24).withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFFBBF24)),
+                          ),
+                          child: Text(
+                            isRoot ? 'ROOT PLATFORM SUPER ADMIN' : 'AUTHORIZED SUPER ADMIN',
+                            style: const TextStyle(
+                              color: Color(0xFFD97706),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Divider(),
+              const SizedBox(height: 12),
+              _buildProfileDetailRow(Icons.fingerprint_rounded, 'Firebase UID', uid),
+              const SizedBox(height: 12),
+              _buildProfileDetailRow(Icons.security_rounded, 'Access Scope', 'Global Full Multi-Tenant Authority'),
+              const SizedBox(height: 12),
+              _buildProfileDetailRow(Icons.domain_verification_rounded, 'Tenant Governance', 'Unrestricted read/write across all enterprises'),
+              const SizedBox(height: 12),
+              _buildProfileDetailRow(Icons.shield_outlined, 'Auth Provider', user?.providerData.firstOrNull?.providerId ?? 'firebase_auth'),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Refresh Cache'),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        setState(() {});
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: const Icon(Icons.logout_rounded),
+                      label: const Text('Sign Out'),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _confirmSignOut(context);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileDetailRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: const Color(0xFF4F46E5)),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 120,
+          child: Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500)),
+        ),
+        Expanded(
+          child: Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        ),
+      ],
     );
   }
 

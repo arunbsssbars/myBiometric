@@ -264,58 +264,70 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
               final pinConfirmed = await showDialog<bool>(
                 context: ctx,
                 builder: (pinCtx) => StatefulBuilder(
-                  builder: (context, setPinState) => AlertDialog(
-                    title: Row(
-                      children: [
-                        Icon(Icons.shield_outlined, color: context.colors.primary),
-                        const SizedBox(width: 8),
-                        Text('Admin Authorization', style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Enter Admin Terminal PIN to authorize re-registering and updating this biometric profile:',
-                          style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: pinController,
-                          autofocus: true,
-                          keyboardType: TextInputType.number,
-                          obscureText: true,
-                          maxLength: 6,
-                          decoration: InputDecoration(
-                            labelText: 'Admin PIN',
-                            errorText: pinError,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                        ),
-                      ],
-                    ),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(pinCtx, false), child: const Text('Cancel')),
-                      FilledButton(
-                        onPressed: () async {
-                          final entered = pinController.text.trim();
-                          final isValid = await AdminPinService.instance.checkPin(
-                            widget.enterpriseId,
-                            entered,
-                            null,
-                          );
-                          if (!pinCtx.mounted) return;
-                          if (isValid || entered == '1234' || entered == '0000') {
-                            Navigator.pop(pinCtx, true);
-                          } else {
-                            setPinState(() => pinError = 'Incorrect Admin PIN');
-                          }
-                        },
-                        child: const Text('Authorize & Overwrite'),
+                  builder: (context, setPinState) {
+                    bool isChecking = false;
+                    Future<void> submitPin(String entered) async {
+                      if (isChecking) return;
+                      isChecking = true;
+                      final isValid = await AdminPinService.instance.checkPin(
+                        widget.enterpriseId,
+                        entered,
+                        null,
+                      );
+                      if (!pinCtx.mounted) return;
+                      if (isValid || entered == '1234' || entered == '0000') {
+                        Navigator.pop(pinCtx, true);
+                      } else {
+                        isChecking = false;
+                        setPinState(() => pinError = 'Incorrect Admin PIN');
+                      }
+                    }
+
+                    return AlertDialog(
+                      title: Row(
+                        children: [
+                          Icon(Icons.shield_outlined, color: context.colors.primary),
+                          const SizedBox(width: 8),
+                          Text('Admin Authorization', style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                        ],
                       ),
-                    ],
-                  ),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Enter Admin Terminal PIN to authorize re-registering and updating this biometric profile:',
+                            style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: pinController,
+                            autofocus: true,
+                            keyboardType: TextInputType.number,
+                            obscureText: true,
+                            maxLength: 6,
+                            onChanged: (val) {
+                              if (val.trim().length >= 4) {
+                                submitPin(val.trim());
+                              }
+                            },
+                            decoration: InputDecoration(
+                              labelText: 'Admin PIN (Default: 1234)',
+                              errorText: pinError,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(pinCtx, false), child: const Text('Cancel')),
+                        FilledButton(
+                          onPressed: () => submitPin(pinController.text.trim()),
+                          child: const Text('Authorize & Overwrite'),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               );
 

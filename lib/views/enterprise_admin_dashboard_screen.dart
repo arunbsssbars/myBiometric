@@ -41,9 +41,15 @@ class _EnterpriseAdminDashboardScreenState
   String _filterPunchType = 'ALL'; // 'ALL', 'PUNCH_IN', 'PUNCH_OUT'
   String _dateFilter = 'TODAY'; // 'TODAY', 'ALL'
   String _companyName = '';
+  String _tenantAdminEmail = '';
   String _staffSearchQuery = '';
   String _staffFilterStatus = 'ALL'; // 'ALL', 'ENROLLED', 'PENDING'
   String _approvalsSubTab = 'REGULARIZATION'; // 'REGULARIZATION' or 'LEAVES'
+
+  bool get _isSuperAdminUser {
+    final email = AuthService().currentUser?.email?.toLowerCase().trim() ?? '';
+    return email == 'arunbsssbars@gmail.com';
+  }
 
   @override
   void initState() {
@@ -56,8 +62,10 @@ class _EnterpriseAdminDashboardScreenState
     try {
       final doc = await FirebaseFirestore.instance.collection('enterprises').doc(widget.enterpriseId).get();
       if (doc.exists && mounted) {
+        final data = doc.data() ?? {};
         setState(() {
-          _companyName = doc.data()?['name'] ?? widget.enterpriseId;
+          _companyName = data['name'] ?? data['companyName'] ?? widget.enterpriseId;
+          _tenantAdminEmail = data['adminEmail'] ?? data['contactEmail'] ?? '';
         });
       }
     } catch (_) {}
@@ -555,14 +563,21 @@ class _EnterpriseAdminDashboardScreenState
                 builder: (context, logsSnapshot) {
                   final logs = logsSnapshot.data ?? [];
 
-                  return TabBarView(
-                    controller: _tabController,
-                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                  return Column(
                     children: [
-                      _buildOverviewTab(staffDocs, logs),
-                      _buildStaffRosterTab(staffDocs, logs),
-                      _buildAttendanceLogsTab(staffDocs, logs),
-                      _buildApprovalsTab(),
+                      if (_isSuperAdminUser) _buildSuperAdminInspectionBanner(),
+                      Expanded(
+                        child: TabBarView(
+                          controller: _tabController,
+                          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                          children: [
+                            _buildOverviewTab(staffDocs, logs),
+                            _buildStaffRosterTab(staffDocs, logs),
+                            _buildAttendanceLogsTab(staffDocs, logs),
+                            _buildApprovalsTab(),
+                          ],
+                        ),
+                      ),
                     ],
                   );
                 },
@@ -574,6 +589,88 @@ class _EnterpriseAdminDashboardScreenState
     ),
   );
 }
+
+  Widget _buildSuperAdminInspectionBanner() {
+    final currentEmail = AuthService().currentUser?.email ?? 'Super Admin';
+    final tenantAdmin = _tenantAdminEmail.isNotEmpty ? _tenantAdminEmail : 'Local Tenant Administrator';
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF3C7),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF59E0B)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFFD97706), size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      'Super Admin Inspection Mode',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF92400E),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'Platform Oversight',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                RichText(
+                  text: TextSpan(
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF78350F)),
+                    children: [
+                      const TextSpan(text: 'You are signed in as Platform Super Admin ('),
+                      TextSpan(
+                        text: currentEmail,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const TextSpan(text: '). This workspace belongs to '),
+                      TextSpan(
+                        text: _companyName.isNotEmpty ? _companyName : widget.enterpriseId,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const TextSpan(text: ', whose local admin is '),
+                      TextSpan(
+                        text: tenantAdmin,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const TextSpan(text: '. Profile and session details reflect your active Super Admin credentials.'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildOverviewTab(
     List<QueryDocumentSnapshot> staff,
