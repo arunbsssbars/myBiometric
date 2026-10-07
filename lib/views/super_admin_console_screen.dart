@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/design_system/design_system.dart';
 import '../services/auth_service.dart';
 import 'enterprise_admin_dashboard_screen.dart';
 import '../main.dart';
@@ -41,7 +42,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: isDark ? const Color(0xFF1E1B4B) : const Color(0xFF312E81),
+        backgroundColor: isDark ? context.colors.surfaceContainerLowest : context.colors.primary,
         foregroundColor: Colors.white,
         title: const Row(
           children: [
@@ -61,6 +62,15 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
           ],
         ),
         actions: [
+          IconButton(
+            icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+            onPressed: () {
+              AppThemeNotifier.instance.setThemeMode(
+                isDark ? ThemeMode.light : ThemeMode.dark,
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh Console',
@@ -119,15 +129,10 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
             stream: FirebaseFirestore.instance.collection('enterprises').snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Text(
-                      'Error loading enterprises: ${snapshot.error}',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  ),
+                return _buildStreamErrorCard(
+                  title: 'Enterprises Stream Error',
+                  error: snapshot.error,
+                  onRetry: () => setState(() {}),
                 );
               }
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -170,162 +175,253 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                 );
               }
 
-              return ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                itemCount: filtered.length,
-                itemBuilder: (context, index) {
-                  final doc = filtered[index];
-                  final data = doc.data() as Map<String, dynamic>? ?? {};
-                  final name = (data['name'] ?? data['companyName'] ?? data['enterpriseName'] ?? doc.id).toString();
-                  final code = (data['companyCode'] ?? data['joinCode'] ?? 'N/A').toString();
-                  final adminEmail = (data['adminEmail'] ?? 'Unassigned').toString();
-                  final kioskPin = (data['kioskPin'] ?? '1234').toString();
-
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    elevation: 1,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              CircleAvatar(
-                                radius: 22,
-                                backgroundColor: const Color(0xFFEEF2FF),
-                                child: Text(
-                                  name.isNotEmpty ? name[0].toUpperCase() : 'E',
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF4F46E5),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      name,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'ID: ${doc.id} • Code: $code',
-                                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Text(
-                                  'ACTIVE',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green,
-                                  ),
-                                ),
-                              ),
-                            ],
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1280),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isWide = constraints.maxWidth >= 768;
+                      if (isWide) {
+                        return GridView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            mainAxisExtent: 270,
                           ),
-                          const Divider(height: 24),
-                          Wrap(
-                            spacing: 16,
-                            runSpacing: 8,
-                            children: [
-                              _buildMetadataItem(Icons.alternate_email_rounded, 'Admin', adminEmail),
-                              _buildMetadataItem(Icons.pin_rounded, 'Kiosk PIN', kioskPin),
-                              _buildMetadataItem(Icons.fingerprint_rounded, 'Tenant', doc.id),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFF4F46E5),
-                                    side: const BorderSide(color: Color(0xFF4F46E5)),
-                                  ),
-                                  icon: const Icon(Icons.dashboard_rounded, size: 18),
-                                  label: const Text(
-                                    'Admin MIS',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => EnterpriseAdminDashboardScreen(
-                                          enterpriseId: doc.id,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: FilledButton.icon(
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: const Color(0xFF4F46E5),
-                                  ),
-                                  icon: const Icon(Icons.launch_rounded, size: 18),
-                                  label: const Text(
-                                    'Launch App',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => HomeScreen(
-                                          enterpriseId: doc.id,
-                                          companyName: name,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                                tooltip: 'Delete Enterprise',
-                                onPressed: () => _confirmDeleteEnterprise(doc.id, name),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                          itemCount: filtered.length,
+                          itemBuilder: (context, index) => _buildEnterpriseCard(filtered[index]),
+                        );
+                      }
+                      return ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) => _buildEnterpriseCard(filtered[index]),
+                      );
+                    },
+                  ),
+                ),
               );
             },
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildEnterpriseCard(QueryDocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    final name = (data['name'] ?? data['companyName'] ?? data['enterpriseName'] ?? doc.id).toString();
+    final code = (data['companyCode'] ?? data['joinCode'] ?? 'N/A').toString();
+    final adminEmail = (data['adminEmail'] ?? 'Unassigned').toString();
+    final kioskPin = (data['kioskPin'] ?? '1234').toString();
+    final status = (data['status'] ?? 'ACTIVE').toString().toUpperCase();
+    final isSuspended = status == 'SUSPENDED';
+    final maxEmployees = (data['maxEmployees'] as num?)?.toInt() ?? 100;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isSuspended ? Colors.amber.withValues(alpha: 0.5) : Colors.grey.withValues(alpha: 0.2),
+          width: isSuspended ? 1.5 : 1.0,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: isSuspended ? const Color(0xFFFEF3C7) : const Color(0xFFEEF2FF),
+                  child: Text(
+                    name.isNotEmpty ? name[0].toUpperCase() : 'E',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isSuspended ? const Color(0xFFD97706) : const Color(0xFF4F46E5),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'ID: ${doc.id} • Code: $code',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isSuspended
+                        ? Colors.amber.withValues(alpha: 0.15)
+                        : Colors.green.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    status,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: isSuspended ? Colors.amber.shade900 : Colors.green,
+                    ),
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert_rounded, size: 20, color: Colors.grey),
+                  tooltip: 'Tenant Governance',
+                  onSelected: (val) {
+                    if (val == 'toggle_status') {
+                      _toggleTenantStatus(doc.id, status);
+                    } else if (val == 'quota') {
+                      _editTenantQuota(doc.id, name, maxEmployees);
+                    } else if (val == 'reset_pin') {
+                      _resetTenantKioskPin(doc.id, name);
+                    } else if (val == 'delete') {
+                      _confirmDeleteEnterprise(doc.id, name);
+                    }
+                  },
+                  itemBuilder: (ctx) => [
+                    PopupMenuItem(
+                      value: 'toggle_status',
+                      child: Row(
+                        children: [
+                          Icon(
+                            isSuspended ? Icons.play_circle_outline_rounded : Icons.pause_circle_outline_rounded,
+                            size: 18,
+                            color: isSuspended ? Colors.green : Colors.amber.shade800,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(isSuspended ? 'Activate Tenant' : 'Suspend Tenant'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'quota',
+                      child: Row(
+                        children: [
+                          Icon(Icons.groups_outlined, size: 18, color: Colors.blue),
+                          SizedBox(width: 8),
+                          Text('Manage Seats & Quota'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'reset_pin',
+                      child: Row(
+                        children: [
+                          Icon(Icons.pin_rounded, size: 18, color: Colors.teal),
+                          SizedBox(width: 8),
+                          Text('Reset Kiosk PIN'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
+                          SizedBox(width: 8),
+                          Text('Delete Enterprise', style: TextStyle(color: Colors.redAccent)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const Divider(height: 20),
+            Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              children: [
+                _buildMetadataItem(Icons.alternate_email_rounded, 'Admin', adminEmail),
+                _buildMetadataItem(Icons.pin_rounded, 'Kiosk PIN', kioskPin),
+                _buildMetadataItem(Icons.groups_rounded, 'Quota', '$maxEmployees seats'),
+                _buildMetadataItem(Icons.fingerprint_rounded, 'Tenant', doc.id),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF4F46E5),
+                      side: const BorderSide(color: Color(0xFF4F46E5)),
+                    ),
+                    icon: const Icon(Icons.dashboard_rounded, size: 18),
+                    label: const Text(
+                      'Admin MIS',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => EnterpriseAdminDashboardScreen(
+                            enterpriseId: doc.id,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF4F46E5),
+                    ),
+                    icon: const Icon(Icons.launch_rounded, size: 18),
+                    label: const Text(
+                      'Launch App',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => HomeScreen(
+                            enterpriseId: doc.id,
+                            companyName: name,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -341,7 +437,11 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
             stream: FirebaseFirestore.instance.collection('users').snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
+                return _buildStreamErrorCard(
+                  title: 'Global Users Stream Error',
+                  error: snapshot.error,
+                  onRetry: () => setState(() {}),
+                );
               }
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -361,56 +461,72 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                 return const Center(child: Text('No users match query.'));
               }
 
-              return ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                itemCount: filtered.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final doc = filtered[index];
-                  final data = doc.data() as Map<String, dynamic>? ?? {};
-                  final name = (data['name'] ?? data['fullName'] ?? 'Unnamed').toString();
-                  final email = (data['email'] ?? doc.id).toString();
-                  final role = (data['role'] ?? 'employee').toString();
-                  final enterpriseId = (data['enterpriseId'] ?? 'None').toString();
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1000),
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final doc = filtered[index];
+                      final data = doc.data() as Map<String, dynamic>? ?? {};
+                      final name = (data['name'] ?? data['fullName'] ?? 'Unnamed').toString();
+                      final email = (data['email'] ?? doc.id).toString();
+                      final role = (data['role'] ?? 'employee').toString();
+                      final enterpriseId = (data['enterpriseId'] ?? 'None').toString();
 
-                  Color roleColor = Colors.blueGrey;
-                  if (role == 'super_admin') roleColor = Colors.amber.shade800;
-                  if (role == 'enterprise_admin' || role == 'admin') roleColor = const Color(0xFF4F46E5);
-                  if (role == 'manager') roleColor = Colors.teal;
+                      Color roleColor = Colors.blueGrey;
+                      if (role == 'super_admin') roleColor = Colors.amber.shade800;
+                      if (role == 'enterprise_admin' || role == 'admin') roleColor = const Color(0xFF4F46E5);
+                      if (role == 'manager') roleColor = Colors.teal;
 
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    leading: CircleAvatar(
-                      backgroundColor: roleColor.withValues(alpha: 0.15),
-                      child: Icon(
-                        role == 'super_admin' ? Icons.shield_rounded : Icons.person_rounded,
-                        color: roleColor,
-                        size: 20,
-                      ),
-                    ),
-                    title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(
-                      '$email • Ent: $enterpriseId',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: roleColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        role.toUpperCase(),
-                        style: TextStyle(
-                          color: roleColor,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        leading: CircleAvatar(
+                          backgroundColor: roleColor.withValues(alpha: 0.15),
+                          child: Icon(
+                            role == 'super_admin' ? Icons.shield_rounded : Icons.person_rounded,
+                            color: roleColor,
+                            size: 20,
+                          ),
                         ),
-                      ),
-                    ),
-                  );
-                },
+                        title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text(
+                          '$email • Ent: $enterpriseId',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: roleColor.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                role.toUpperCase(),
+                                style: TextStyle(
+                                  color: roleColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 18),
+                              tooltip: 'Modify Role',
+                              onPressed: () => _changeUserRole(doc.id, role, email),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
               );
             },
           ),
@@ -448,7 +564,11 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
             stream: FirebaseFirestore.instance.collection('super_admins').snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
+                return _buildStreamErrorCard(
+                  title: 'Super Admins Stream Error',
+                  error: snapshot.error,
+                  onRetry: () => setState(() {}),
+                );
               }
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -471,52 +591,57 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                 }).where((a) => a['email'] != 'arunbsssbars@gmail.com'),
               ];
 
-              return ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: allSuperAdmins.length,
-                itemBuilder: (context, index) {
-                  final item = allSuperAdmins[index];
-                  final email = item['email'] as String;
-                  final isRoot = item['isRoot'] as bool;
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1000),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: allSuperAdmins.length,
+                    itemBuilder: (context, index) {
+                      final item = allSuperAdmins[index];
+                      final email = item['email'] as String;
+                      final isRoot = item['isRoot'] as bool;
 
-                  return Card(
-                    elevation: 1,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: const CircleAvatar(
-                        backgroundColor: Color(0xFFFEF3C7),
-                        child: Icon(Icons.shield_rounded, color: Color(0xFFD97706)),
-                      ),
-                      title: Text(email, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text(
-                        isRoot ? 'Root Platform Owner' : 'Super Administrator',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                      trailing: isRoot
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.amber.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Text(
-                                'PRIMARY',
-                                style: TextStyle(
-                                  color: Color(0xFFB45309),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
+                      return Card(
+                        elevation: 1,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: const CircleAvatar(
+                            backgroundColor: Color(0xFFFEF3C7),
+                            child: Icon(Icons.shield_rounded, color: Color(0xFFD97706)),
+                          ),
+                          title: Text(email, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(
+                            isRoot ? 'Root Platform Owner' : 'Super Administrator',
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                          trailing: isRoot
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    'PRIMARY',
+                                    style: TextStyle(
+                                      color: Color(0xFFB45309),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                )
+                              : IconButton(
+                                  icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
+                                  tooltip: 'Revoke Super Admin',
+                                  onPressed: () => _revokeSuperAdmin(item['id'] as String, email),
                                 ),
-                              ),
-                            )
-                          : IconButton(
-                              icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
-                              tooltip: 'Revoke Super Admin',
-                              onPressed: () => _revokeSuperAdmin(item['id'] as String, email),
-                            ),
-                    ),
-                  );
-                },
+                        ),
+                      );
+                    },
+                  ),
+                ),
               );
             },
           ),
@@ -755,8 +880,10 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                           'geofencingEnabled': false,
                           'wifiGeofencingEnabled': false,
                         });
-                        if (mounted) {
+                        if (ctx.mounted) {
                           Navigator.pop(ctx);
+                        }
+                        if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('Enterprise "$name" ($code) provisioned successfully!')),
                           );
@@ -820,8 +947,10 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                           'grantedAt': FieldValue.serverTimestamp(),
                           'grantedBy': AuthService().currentUser?.email ?? 'Root',
                         });
-                        if (mounted) {
+                        if (ctx.mounted) {
                           Navigator.pop(ctx);
+                        }
+                        if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('Super Admin rights granted to $email')),
                           );
@@ -928,6 +1057,253 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
             child: const Text('Sign Out'),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _toggleTenantStatus(String enterpriseId, String currentStatus) async {
+    final newStatus = (currentStatus.toUpperCase() == 'SUSPENDED') ? 'ACTIVE' : 'SUSPENDED';
+    try {
+      await FirebaseFirestore.instance.collection('enterprises').doc(enterpriseId).update({
+        'status': newStatus,
+        'statusUpdatedAt': FieldValue.serverTimestamp(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Enterprise status changed to $newStatus'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update status: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  void _editTenantQuota(String enterpriseId, String companyName, int currentQuota) {
+    final quotaCtrl = TextEditingController(text: currentQuota.toString());
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Employee Quota • $companyName', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Set the maximum allowed employee registrations for this enterprise tenant:'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: quotaCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Max Employee Seats',
+                suffixText: 'employees',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () async {
+              final newQuota = int.tryParse(quotaCtrl.text.trim());
+              if (newQuota == null || newQuota <= 0) return;
+              Navigator.pop(ctx);
+              try {
+                await FirebaseFirestore.instance.collection('enterprises').doc(enterpriseId).update({
+                  'maxEmployees': newQuota,
+                });
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Quota for $companyName updated to $newQuota seats')),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to update quota: $e'), backgroundColor: Colors.redAccent),
+                  );
+                }
+              }
+            },
+            child: const Text('Save Quota'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _resetTenantKioskPin(String enterpriseId, String companyName) {
+    final pinCtrl = TextEditingController(text: '1234');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Reset Kiosk PIN • $companyName', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Set a new kiosk terminal access PIN for this enterprise:'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: pinCtrl,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              decoration: const InputDecoration(
+                labelText: 'New Kiosk PIN',
+                counterText: '',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () async {
+              final pin = pinCtrl.text.trim();
+              if (pin.length < 4) return;
+              Navigator.pop(ctx);
+              try {
+                await FirebaseFirestore.instance.collection('enterprises').doc(enterpriseId).update({
+                  'kioskPin': pin,
+                  'pinUpdatedAt': FieldValue.serverTimestamp(),
+                });
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Kiosk PIN for $companyName updated successfully')),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to update PIN: $e'), backgroundColor: Colors.redAccent),
+                  );
+                }
+              }
+            },
+            child: const Text('Save PIN'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _changeUserRole(String userId, String currentRole, String userEmail) {
+    String selectedRole = currentRole;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Manage User Role', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('User: $userEmail', style: const TextStyle(fontSize: 13, color: Colors.grey)),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: ['employee', 'manager', 'enterprise_admin', 'super_admin'].contains(selectedRole)
+                    ? selectedRole
+                    : 'employee',
+                decoration: const InputDecoration(labelText: 'Assigned Role'),
+                items: const [
+                  DropdownMenuItem(value: 'employee', child: Text('Employee')),
+                  DropdownMenuItem(value: 'manager', child: Text('Department Manager')),
+                  DropdownMenuItem(value: 'enterprise_admin', child: Text('Enterprise Admin')),
+                  DropdownMenuItem(value: 'super_admin', child: Text('Platform Super Admin')),
+                ],
+                onChanged: (val) {
+                  if (val != null) setDlgState(() => selectedRole = val);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                try {
+                  await FirebaseFirestore.instance.collection('users').doc(userId).update({
+                    'role': selectedRole,
+                    'roleUpdatedAt': FieldValue.serverTimestamp(),
+                  });
+                  // If granted super_admin, also mirror to super_admins collection
+                  if (selectedRole == 'super_admin') {
+                    await FirebaseFirestore.instance.collection('super_admins').doc(userId).set({
+                      'email': userEmail,
+                      'role': 'super_admin',
+                      'grantedAt': FieldValue.serverTimestamp(),
+                      'grantedBy': AuthService().currentUser?.email ?? 'SuperAdmin',
+                    }, SetOptions(merge: true));
+                  }
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Role for $userEmail updated to $selectedRole')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to update role: $e'), backgroundColor: Colors.redAccent),
+                    );
+                  }
+                }
+              },
+              child: const Text('Update Role'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStreamErrorCard({required String title, required Object? error, required VoidCallback onRetry}) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.shield_outlined, color: Colors.amber, size: 52),
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Access restricted or verifying authorization tokens:\n$error',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Retry Stream'),
+                  onPressed: onRetry,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

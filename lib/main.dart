@@ -540,6 +540,22 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
         ),
         actions: [
           IconButton(
+            icon: Icon(
+              Theme.of(context).brightness == Brightness.dark
+                  ? Icons.light_mode_rounded
+                  : Icons.dark_mode_rounded,
+            ),
+            tooltip: Theme.of(context).brightness == Brightness.dark
+                ? 'Switch to Light Mode'
+                : 'Switch to Dark Mode',
+            onPressed: () {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              AppThemeNotifier.instance.setThemeMode(
+                isDark ? ThemeMode.light : ThemeMode.dark,
+              );
+            },
+          ),
+          IconButton(
             tooltip: 'Sign Out',
             onPressed: () async {
               await AuthService().signOut();
@@ -555,35 +571,43 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
       bottomNavigationBar: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.grey.shade200)),
+          color: context.colors.surface,
+          border: Border(top: BorderSide(color: context.colors.outlineVariant)),
         ),
         child: SafeArea(
-          child: Row(
-            children: [
-              const Icon(Icons.account_circle, size: 20, color: Color(0xFF64748B)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  user?.email ?? 'Logged in',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
-                  overflow: TextOverflow.ellipsis,
-                ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 680),
+              child: Row(
+                children: [
+                  Icon(Icons.account_circle, size: 20, color: context.colors.onSurfaceVariant),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      user?.email ?? 'Logged in',
+                      style: TextStyle(fontSize: 12, color: context.colors.onSurfaceVariant),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      await AuthService().signOut();
+                      if (context.mounted) {
+                        Navigator.of(context).popUntil((route) => route.isFirst);
+                      }
+                    },
+                    child: const Text('Sign Out', style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: () async {
-                  await AuthService().signOut();
-                  if (context.mounted) {
-                    Navigator.of(context).popUntil((route) => route.isFirst);
-                  }
-                },
-                child: const Text('Sign Out', style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
-              ),
-            ],
+            ),
           ),
         ),
       ),
-      body: Column(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680),
+          child: Column(
         children: [
           // If the user has previously linked workspaces, offer quick 1-tap switch back
           if (_linkedEnterprises.isNotEmpty)
@@ -805,8 +829,10 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
           ),
         ],
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 }
 
 class LoginScreen extends StatefulWidget {
@@ -866,115 +892,137 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+            onPressed: () {
+              AppThemeNotifier.instance.setThemeMode(
+                isDark ? ThemeMode.light : ThemeMode.dark,
+              );
+            },
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.fingerprint, size: 76, color: Color(0xFF2563EB)),
-                const SizedBox(height: 16),
-                Text(
-                  'myBiometric',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF0F172A),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.fingerprint, size: 76, color: Color(0xFF2563EB)),
+                    const SizedBox(height: 16),
+                    Text(
+                      'myBiometric',
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: context.colors.onSurface,
+                          ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _isLogin ? 'Employee Sign In' : 'Employee Registration',
+                      style: TextStyle(color: context.colors.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 36),
+                    TextField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(
+                        labelText: 'Email',
+                        prefixIcon: const Icon(Icons.email_outlined),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: FilledButton(
+                        onPressed: _isLoading ? null : _submit,
+                        child: _isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : Text(_isLogin ? 'Sign In' : 'Create Account', style: const TextStyle(fontSize: 16)),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: () => setState(() => _isLogin = !_isLogin),
+                      child: Text(_isLogin ? 'Need an account? Register here.' : 'Already have an account? Sign In.'),
+                    ),
+                    const Divider(height: 36),
+                    OutlinedButton.icon(
+                      onPressed: _isLoading
+                          ? null
+                          : () async {
+                              setState(() => _isLoading = true);
+                              try {
+                                final cred = await AuthService().signInWithGoogle();
+                                if (cred == null && mounted) {
+                                  setState(() => _isLoading = false);
+                                }
+                              } catch (e) {
+                                if (mounted && context.mounted) {
+                                  final isNetwork = e is AuthNetworkException ||
+                                      e.toString().toLowerCase().contains('network') ||
+                                      e.toString().toLowerCase().contains('internet');
+                                  final message = e is AuthException
+                                      ? e.message
+                                      : 'Google Sign-In failed: $e';
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Row(
+                                        children: [
+                                          if (isNetwork)
+                                            const Padding(
+                                              padding: EdgeInsets.only(right: 8.0),
+                                              child: Icon(Icons.wifi_off, color: Colors.white, size: 20),
+                                            ),
+                                          Expanded(child: Text(message)),
+                                        ],
+                                      ),
+                                      backgroundColor: isNetwork ? Colors.orange.shade800 : Colors.red.shade700,
+                                      behavior: SnackBarBehavior.floating,
+                                      duration: const Duration(seconds: 4),
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                if (mounted && _isLoading) {
+                                  setState(() => _isLoading = false);
+                                }
+                              }
+                            },
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        minimumSize: const Size(double.infinity, 48),
+                      ),
+                      icon: const Icon(Icons.g_mobiledata, size: 30),
+                      label: const Text('Continue with Google'),
+                    )
+                  ],
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  _isLogin ? 'Employee Sign In' : 'Employee Registration',
-                  style: const TextStyle(color: Color(0xFF64748B)),
-                ),
-                const SizedBox(height: 36),
-                TextField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: const Icon(Icons.email_outlined),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: FilledButton(
-                    onPressed: _isLoading ? null : _submit,
-                    child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : Text(_isLogin ? 'Sign In' : 'Create Account', style: const TextStyle(fontSize: 16)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () => setState(() => _isLogin = !_isLogin),
-                  child: Text(_isLogin ? 'Need an account? Register here.' : 'Already have an account? Sign In.'),
-                ),
-                const Divider(height: 36),
-                OutlinedButton.icon(
-                  onPressed: _isLoading
-                      ? null
-                      : () async {
-                          setState(() => _isLoading = true);
-                          try {
-                            final cred = await AuthService().signInWithGoogle();
-                            if (cred == null && mounted) {
-                              setState(() => _isLoading = false);
-                            }
-                          } catch (e) {
-                            if (mounted && context.mounted) {
-                              final isNetwork = e is AuthNetworkException ||
-                                  e.toString().toLowerCase().contains('network') ||
-                                  e.toString().toLowerCase().contains('internet');
-                              final message = e is AuthException
-                                  ? e.message
-                                  : 'Google Sign-In failed: $e';
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Row(
-                                    children: [
-                                      if (isNetwork)
-                                        const Padding(
-                                          padding: EdgeInsets.only(right: 8.0),
-                                          child: Icon(Icons.wifi_off, color: Colors.white, size: 20),
-                                        ),
-                                      Expanded(child: Text(message)),
-                                    ],
-                                  ),
-                                  backgroundColor: isNetwork ? Colors.orange.shade800 : Colors.red.shade700,
-                                  behavior: SnackBarBehavior.floating,
-                                  duration: const Duration(seconds: 4),
-                                ),
-                              );
-                            }
-                          } finally {
-                            if (mounted && _isLoading) {
-                              setState(() => _isLoading = false);
-                            }
-                          }
-                        },
-                  style: OutlinedButton.styleFrom(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    minimumSize: const Size(double.infinity, 48),
-                  ),
-                  icon: const Icon(Icons.g_mobiledata, size: 30),
-                  label: const Text('Continue with Google'),
-                )
-              ],
+              ),
             ),
           ),
         ),
@@ -1032,10 +1080,10 @@ class _ModernDigitalClockCardState extends State<ModernDigitalClockCard> {
   Widget build(BuildContext context) {
     return Card(
       elevation: 0,
-      color: Colors.white,
+      color: context.colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: Color(0xFFE2E8F0)),
+        side: BorderSide(color: context.colors.outlineVariant),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 20.0),
@@ -1043,17 +1091,17 @@ class _ModernDigitalClockCardState extends State<ModernDigitalClockCard> {
           children: [
             Text(
               _currentTime,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 42,
                 fontWeight: FontWeight.w300,
                 letterSpacing: -1,
-                color: Color(0xFF0F172A),
+                color: context.colors.onSurface,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               _currentDate,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+              style: TextStyle(fontSize: 14, color: context.colors.onSurfaceVariant),
             ),
           ],
         ),
@@ -1423,6 +1471,22 @@ class _HomeScreenState extends State<HomeScreen> {
               tooltip: 'Kiosk Mode',
               onPressed: () => _openKioskMode(enterpriseId),
             ),
+            IconButton(
+              icon: Icon(
+                Theme.of(context).brightness == Brightness.dark
+                    ? Icons.light_mode_rounded
+                    : Icons.dark_mode_rounded,
+              ),
+              tooltip: Theme.of(context).brightness == Brightness.dark
+                  ? 'Switch to Light Mode'
+                  : 'Switch to Dark Mode',
+              onPressed: () {
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+                AppThemeNotifier.instance.setThemeMode(
+                  isDark ? ThemeMode.light : ThemeMode.dark,
+                );
+              },
+            ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (val) async {
@@ -1581,198 +1645,203 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       // Scrollable body to guarantee ZERO overflow on any device
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Super Admin Quick-Access Banner
-            if (_userRole == 'super_admin') ...[
-              InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const SuperAdminConsoleScreen(),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1E1B4B), Color(0xFF3730A3)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 960),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Super Admin Quick-Access Banner
+                if (_userRole == 'super_admin') ...[
+                  InkWell(
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF4F46E5).withValues(alpha: 0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFBBF24).withValues(alpha: 0.2),
-                          shape: BoxShape.circle,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const SuperAdminConsoleScreen(),
                         ),
-                        child: const Icon(Icons.shield_rounded, color: Color(0xFFFBBF24), size: 24),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF1E1B4B), Color(0xFF3730A3)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF4F46E5).withValues(alpha: 0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 14),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFBBF24).withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.shield_rounded, color: Color(0xFFFBBF24), size: 24),
+                          ),
+                          const SizedBox(width: 14),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Platform Super Admin Active',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Tap to govern all enterprises, staff & platform metrics',
+                                  style: TextStyle(color: Colors.white70, fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFFFBBF24), size: 14),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                ],
+
+                // Modern Digital Clock Card
+                const ModernDigitalClockCard(),
+                const SizedBox(height: 18),
+
+                // Dynamic Face ID Status & Enrollment Section
+                StreamBuilder<DocumentSnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(AuthService().currentUser?.uid)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+                      return _buildFaceCheckingSkeletonLoader();
+                    }
+
+                    final data = snapshot.data?.data() as Map<String, dynamic>?;
+                    final isEnrolled = data?['biometricsEnrolled'] == true;
+
+                    if (!isEnrolled) {
+                      // Beautiful, spacious, un-cramped Face Not Registered Card
+                      return _buildFaceNotRegisteredCard(context);
+                    }
+
+                    // If enrolled: sleek verified badge + Incomplete Shifts + Today's Activity section
+                    final user = AuthService().currentUser;
+                    return StreamBuilder<List<QueryDocumentSnapshot>>(
+                      stream: user != null
+                          ? DatabaseService().getUserApprovalRequests(user.uid)
+                          : const Stream.empty(),
+                      builder: (context, requestsSnapshot) {
+                        final userRequests = requestsSnapshot.data ?? [];
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Text(
-                              'Platform Super Admin Active',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                            // Personal Mobile Clock In / Out Action Card
+                            MobilePunchCard(
+                              enterpriseId: enterpriseId,
+                              userData: data,
+                            ),
+                            const SizedBox(height: 10),
+                            // Missing Clock-Out Alert / Regularization Section
+                            _buildIncompleteShiftsSection(data, userRequests),
+                            const SizedBox(height: 10),
+                            // Dedicated Attendance Activity Navigation Card
+                            Container(
+                              decoration: BoxDecoration(
+                                color: context.colors.surface,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: context.colors.outlineVariant),
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                leading: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.history_rounded, color: Color(0xFF2563EB), size: 22),
+                                ),
+                                title: Text('Attendance Activity', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: context.colors.onSurface)),
+                                subtitle: Text('View punch timeline, timesheet history & PDF export', style: TextStyle(fontSize: 12, color: context.colors.onSurfaceVariant)),
+                                trailing: Icon(Icons.chevron_right, color: context.colors.onSurfaceVariant),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => AttendanceActivityScreen(
+                                        enterpriseId: enterpriseId,
+                                        companyName: _effectiveCompanyName,
+                                        userRole: _userRole,
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                             ),
-                            SizedBox(height: 2),
-                            Text(
-                              'Tap to govern all enterprises, staff & platform metrics',
-                              style: TextStyle(color: Colors.white70, fontSize: 11),
+                            const SizedBox(height: 10),
+                            // Leave & Time-Off Quick Action
+                            Container(
+                              decoration: BoxDecoration(
+                                color: context.colors.surface,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: context.colors.outlineVariant),
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                leading: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.beach_access_rounded, color: Color(0xFF0284C7), size: 22),
+                                ),
+                                title: Text('Leave & Time-Off', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: context.colors.onSurface)),
+                                subtitle: Text('Apply for time-off, sick leave, or check approvals', style: TextStyle(fontSize: 12, color: context.colors.onSurfaceVariant)),
+                                trailing: Icon(Icons.chevron_right, color: context.colors.onSurfaceVariant),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => LeaveManagementScreen(
+                                        enterpriseId: enterpriseId,
+                                        companyName: _effectiveCompanyName,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
                           ],
-                        ),
-                      ),
-                      const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFFFBBF24), size: 14),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-            ],
-
-            // Modern Digital Clock Card
-            const ModernDigitalClockCard(),
-            const SizedBox(height: 18),
-
-            // Dynamic Face ID Status & Enrollment Section
-            StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(AuthService().currentUser?.uid)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-                  return _buildFaceCheckingSkeletonLoader();
-                }
-
-                final data = snapshot.data?.data() as Map<String, dynamic>?;
-                final isEnrolled = data?['biometricsEnrolled'] == true;
-
-                if (!isEnrolled) {
-                  // Beautiful, spacious, un-cramped Face Not Registered Card
-                  return _buildFaceNotRegisteredCard(context);
-                }
-
-                // If enrolled: sleek verified badge + Incomplete Shifts + Today's Activity section
-                final user = AuthService().currentUser;
-                return StreamBuilder<List<QueryDocumentSnapshot>>(
-                  stream: user != null
-                      ? DatabaseService().getUserApprovalRequests(user.uid)
-                      : const Stream.empty(),
-                  builder: (context, requestsSnapshot) {
-                    final userRequests = requestsSnapshot.data ?? [];
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Personal Mobile Clock In / Out Action Card
-                        MobilePunchCard(
-                          enterpriseId: enterpriseId,
-                          userData: data,
-                        ),
-                        const SizedBox(height: 10),
-                        // Missing Clock-Out Alert / Regularization Section
-                        _buildIncompleteShiftsSection(data, userRequests),
-                        const SizedBox(height: 10),
-                        // Dedicated Attendance Activity Navigation Card
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
-                          ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                            leading: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2563EB).withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.history_rounded, color: Color(0xFF2563EB), size: 22),
-                            ),
-                            title: const Text('Attendance Activity', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                            subtitle: const Text('View punch timeline, timesheet history & PDF export', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                            trailing: const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => AttendanceActivityScreen(
-                                    enterpriseId: enterpriseId,
-                                    companyName: _effectiveCompanyName,
-                                    userRole: _userRole,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        // Leave & Time-Off Quick Action
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
-                          ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                            leading: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0284C7).withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.beach_access_rounded, color: Color(0xFF0284C7), size: 22),
-                            ),
-                            title: const Text('Leave & Time-Off', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                            subtitle: const Text('Apply for time-off, sick leave, or check approvals', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                            trailing: const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => LeaveManagementScreen(
-                                    enterpriseId: enterpriseId,
-                                    companyName: _effectiveCompanyName,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
+                        );
+                      },
                     );
                   },
-                );
-              },
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     ),
@@ -1784,9 +1853,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: context.colors.outlineVariant),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),

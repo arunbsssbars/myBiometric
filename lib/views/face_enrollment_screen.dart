@@ -302,10 +302,12 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
               );
 
               if (pinConfirmed == true) {
-                if (!ctx.mounted) return;
+                if (!mounted) return;
                 final hasNet = await NetworkConnectionService.checkConnectionAndNotify(context);
-                if (!hasNet) return;
-                Navigator.of(ctx).pop(); // Dismiss collision dialog
+                if (!hasNet || !mounted) return;
+                if (ctx.mounted) {
+                  Navigator.of(ctx).pop(); // Dismiss collision dialog
+                }
                 final targetUid = _effectiveUserId;
                 if (targetUid != null) {
                   try {
@@ -374,7 +376,7 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
 
         if (isComplete && mounted) {
           await _cameraController?.stopImageStream();
-          await Future.delayed(const Duration(milliseconds: 3200));
+          await Future.delayed(const Duration(milliseconds: 1100));
           if (mounted) Navigator.pop(context);
         }
       } else {
@@ -387,6 +389,15 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
       }
     } catch (e) {
       debugPrint("Error registering face: $e");
+      if (mounted && _viewModel.errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_viewModel.errorMessage!),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } finally {
       if (mounted) _isProcessingFrame = false;
     }
@@ -508,6 +519,33 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
                   ],
                 ),
               ),
+
+              // 4. Success Overlay Checkmark
+              if (_viewModel.isSuccess)
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.5), width: 1.5),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 68),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Face Registered!',
+                          style: context.text.titleLarge?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
         );

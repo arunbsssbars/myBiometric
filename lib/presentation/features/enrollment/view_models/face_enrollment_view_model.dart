@@ -44,6 +44,11 @@ class FaceEnrollmentViewModel extends ChangeNotifier {
   DateTime? _lastPhaseChangeTime;
   DateTime? _blinkPhaseStartTime;
 
+  // Hysteresis & message anti-flicker tracking
+  DateTime? _lastMessageUpdateTime;
+  DateTime? _lastFaceDetectedTime;
+  String? _errorMessage;
+
   EnrollmentPhase get currentPhase => _currentPhase;
   String get statusMessage => _statusMessage;
   Color get borderColor => _borderColor;
@@ -51,22 +56,46 @@ class FaceEnrollmentViewModel extends ChangeNotifier {
   bool get isProcessing => _isProcessing;
   double get progress => _progress;
   BiometricCollisionException? get collisionException => _collisionException;
+  String? get errorMessage => _errorMessage;
+
+  void _updateTransientStatus(String message, {Color? border}) {
+    final now = DateTime.now();
+    if (_statusMessage == message) return;
+    if (_lastMessageUpdateTime != null &&
+        now.difference(_lastMessageUpdateTime!).inMilliseconds < 750) {
+      return; // Suppress high-frequency status oscillations across 30fps frames
+    }
+    _statusMessage = message;
+    if (border != null) _borderColor = border;
+    _lastMessageUpdateTime = now;
+    notifyListeners();
+  }
+
+  void _forceStatus(String message, {Color? border}) {
+    _statusMessage = message;
+    if (border != null) _borderColor = border;
+    _lastMessageUpdateTime = DateTime.now();
+    notifyListeners();
+  }
 
   Future<void> initializeML() async {
     await _mlService.initialize();
   }
 
   void onCameraPermissionDenied() {
-    _statusMessage = "Camera permission denied";
-    _borderColor = Colors.redAccent;
-    notifyListeners();
+    _errorMessage = "Camera access denied. Please enable camera in device settings.";
+    _forceStatus("Camera permission denied", border: Colors.redAccent);
   }
 
   void onNoFaceDetected() {
     if (_isSuccess || _collisionException != null) return;
-    _borderColor = Colors.amber;
-    _statusMessage = _getPhaseInstruction();
-    notifyListeners();
+    final now = DateTime.now();
+    // Anti-jitter: do not flicker if face was detected within the last 700ms
+    if (_lastFaceDetectedTime != null &&
+        now.difference(_lastFaceDetectedTime!).inMilliseconds < 700) {
+      return;
+    }
+    _updateTransientStatus(_getPhaseInstruction(), border: Colors.amber);
   }
 
   String _getPhaseInstruction() {
@@ -114,6 +143,8 @@ class FaceEnrollmentViewModel extends ChangeNotifier {
           ? Size(image.height.toDouble(), image.width.toDouble())
           : Size(image.width.toDouble(), image.height.toDouble());
 
+      _lastFaceDetectedTime = DateTime.now();
+
       final validation = FaceValidationUtils.validateFace(
         face: face,
         imageSize: effectiveSize,
@@ -123,9 +154,7 @@ class FaceEnrollmentViewModel extends ChangeNotifier {
       );
 
       if (!validation.isValid) {
-        _borderColor = Colors.amber;
-        _statusMessage = validation.feedbackMessage ?? "Align your face properly";
-        notifyListeners();
+        _updateTransientStatus(validation.feedbackMessage ?? "Align your face properly", border: Colors.amber);
         return false;
       }
 
@@ -144,63 +173,48 @@ class FaceEnrollmentViewModel extends ChangeNotifier {
       switch (_currentPhase) {
         case EnrollmentPhase.center:
           if (yaw.abs() <= 10.0 && pitch.abs() <= 12.0) {
-            _borderColor = Colors.greenAccent;
-            _statusMessage = "Front pose captured! Now turn slightly to the LEFT";
             final sig = await _mlService.extractFaceSignature(image, face, sensorOrientation: sensorOrientation);
             _signatures.add(sig);
             _currentPhase = EnrollmentPhase.turnLeft;
             _progress = 0.25;
             _lastPhaseChangeTime = now;
             HapticFeedback.selectionClick();
-            notifyListeners();
+            _forceStatus("Front pose captured! Now turn slightly to the LEFT", border: Colors.greenAccent);
           } else {
-            _borderColor = Colors.white;
-            _statusMessage = "Look directly into the circle";
-            notifyListeners();
+            _updateTransientStatus("Look directly into the circle", border: Colors.white);
           }
           break;
 
         case EnrollmentPhase.turnLeft:
-          _borderColor = Colors.blueAccent;
           if (yaw.abs() >= 12.0) {
-            _borderColor = Colors.greenAccent;
-            _statusMessage = "Left profile captured! Now turn slightly to the RIGHT";
             final sig = await _mlService.extractFaceSignature(image, face, sensorOrientation: sensorOrientation);
             _signatures.add(sig);
             _currentPhase = EnrollmentPhase.turnRight;
             _progress = 0.50;
             _lastPhaseChangeTime = now;
             HapticFeedback.selectionClick();
-            notifyListeners();
+            _forceStatus("Left profile captured! Now turn slightly to the RIGHT", border: Colors.greenAccent);
           } else {
-            _statusMessage = "Turn your head slightly to the LEFT";
-            notifyListeners();
+            _updateTransientStatus("Turn your head slightly to the LEFT", border: Colors.blueAccent);
           }
           break;
 
         case EnrollmentPhase.turnRight:
-          _borderColor = Colors.blueAccent;
           if (yaw.abs() >= 12.0) {
-            _borderColor = Colors.greenAccent;
-            _statusMessage = "Right profile captured! Now tilt chin slightly UP";
             final sig = await _mlService.extractFaceSignature(image, face, sensorOrientation: sensorOrientation);
             _signatures.add(sig);
             _currentPhase = EnrollmentPhase.tiltUp;
             _progress = 0.70;
             _lastPhaseChangeTime = now;
             HapticFeedback.selectionClick();
-            notifyListeners();
+            _forceStatus("Right profile captured! Now tilt chin slightly UP", border: Colors.greenAccent);
           } else {
-            _statusMessage = "Turn your head slightly to the RIGHT";
-            notifyListeners();
+            _updateTransientStatus("Turn your head slightly to the RIGHT", border: Colors.blueAccent);
           }
           break;
 
         case EnrollmentPhase.tiltUp:
-          _borderColor = Colors.blueAccent;
           if (pitch.abs() >= 8.0) {
-            _borderColor = Colors.greenAccent;
-            _statusMessage = "Tilt captured! Now blink your eyes to verify liveness";
             final sig = await _mlService.extractFaceSignature(image, face, sensorOrientation: sensorOrientation);
             _signatures.add(sig);
             _currentPhase = EnrollmentPhase.blink;
@@ -209,15 +223,13 @@ class FaceEnrollmentViewModel extends ChangeNotifier {
             _blinkPhaseStartTime = now;
             _blinkEyesClosedDetected = false;
             HapticFeedback.selectionClick();
-            notifyListeners();
+            _forceStatus("Tilt captured! Now blink your eyes to verify liveness", border: Colors.greenAccent);
           } else {
-            _statusMessage = "Tilt your chin slightly UP";
-            notifyListeners();
+            _updateTransientStatus("Tilt your chin slightly UP", border: Colors.blueAccent);
           }
           break;
 
         case EnrollmentPhase.blink:
-          _borderColor = Colors.amberAccent;
           final double? eyeOpenAvg = (leftEye != null && rightEye != null)
               ? (leftEye + rightEye) / 2.0
               : (leftEye ?? rightEye);
@@ -226,9 +238,8 @@ class FaceEnrollmentViewModel extends ChangeNotifier {
             // Eyelids closed: average is low (< 0.45) OR either eye drops low (< 0.35)
             if (!_blinkEyesClosedDetected && (eyeOpenAvg < 0.45 || (leftEye != null && leftEye < 0.35) || (rightEye != null && rightEye < 0.35))) {
               _blinkEyesClosedDetected = true;
-              _statusMessage = "Blink registered! Open your eyes to complete";
               HapticFeedback.selectionClick();
-              notifyListeners();
+              _forceStatus("Blink registered! Open your eyes to complete", border: Colors.amberAccent);
             } else if (_blinkEyesClosedDetected && (eyeOpenAvg > 0.55 || (leftEye != null && leftEye > 0.55) || (rightEye != null && rightEye > 0.55))) {
               await _completeEnrollment(
                 userId: userId,
@@ -238,16 +249,15 @@ class FaceEnrollmentViewModel extends ChangeNotifier {
               );
               return true;
             } else if (!_blinkEyesClosedDetected) {
-              _statusMessage = "Blink your eyes to verify liveness";
-              notifyListeners();
+              _updateTransientStatus("Blink your eyes to verify liveness", border: Colors.amberAccent);
             }
           } else {
             // If device camera provider doesn't output eye classification probabilities
             await _completeEnrollment(
-              userId: userId,
-              enterpriseId: enterpriseId,
-              fullName: fullName,
-              employeeId: employeeId,
+                userId: userId,
+                enterpriseId: enterpriseId,
+                fullName: fullName,
+                employeeId: employeeId,
             );
             return true;
           }
@@ -269,20 +279,21 @@ class FaceEnrollmentViewModel extends ChangeNotifier {
       }
     } on BiometricCollisionException catch (e) {
       _collisionException = e;
-      _statusMessage = "Identity Conflict: Face already registered";
-      _borderColor = Colors.redAccent;
+      _errorMessage = e.toString();
+      _forceStatus("Identity Conflict: Face already registered", border: Colors.redAccent);
       HapticFeedback.heavyImpact();
-      notifyListeners();
+      rethrow;
     } catch (e) {
       final errStr = e.toString();
       if (errStr.contains('Model not initialised') || errStr.contains('Model not initialized')) {
-        _statusMessage = "Initializing biometric engine... Please hold still";
-        _borderColor = Colors.amberAccent;
+        _forceStatus("Initializing biometric engine... Please hold still", border: Colors.amberAccent);
+      } else if (errStr.toLowerCase().contains('permission-denied') || errStr.toLowerCase().contains('permissions')) {
+        _errorMessage = "Firestore permission denied while saving facial profile.";
+        _forceStatus("Permission error saving biometric template", border: Colors.redAccent);
       } else {
-        _statusMessage = "Camera adjustment needed. Please center your face";
-        _borderColor = Colors.redAccent;
+        _errorMessage = errStr;
+        _forceStatus("Biometric processing error: ${errStr.split(':').last.trim()}", border: Colors.redAccent);
       }
-      notifyListeners();
     } finally {
       _isProcessing = false;
     }
@@ -359,6 +370,9 @@ class FaceEnrollmentViewModel extends ChangeNotifier {
     _blinkEyesClosedDetected = false;
     _lastPhaseChangeTime = null;
     _blinkPhaseStartTime = null;
+    _lastMessageUpdateTime = null;
+    _lastFaceDetectedTime = null;
+    _errorMessage = null;
     notifyListeners();
   }
 }

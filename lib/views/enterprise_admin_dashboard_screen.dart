@@ -416,6 +416,23 @@ class _EnterpriseAdminDashboardScreenState
                 enterpriseId: widget.enterpriseId,
                 isAdmin: true,
               ),
+            IconButton(
+              icon: Icon(
+                Theme.of(context).brightness == Brightness.dark
+                    ? Icons.light_mode_rounded
+                    : Icons.dark_mode_rounded,
+                color: context.colors.textPrimary,
+              ),
+              tooltip: Theme.of(context).brightness == Brightness.dark
+                  ? 'Switch to Light Mode'
+                  : 'Switch to Dark Mode',
+              onPressed: () {
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+                AppThemeNotifier.instance.setThemeMode(
+                  isDark ? ThemeMode.light : ThemeMode.dark,
+                );
+              },
+            ),
             PopupMenuButton<String>(
               tooltip: 'Admin Menu',
               icon: Icon(Icons.more_vert_rounded, color: context.colors.textPrimary),
@@ -525,29 +542,34 @@ class _EnterpriseAdminDashboardScreenState
           ],
         ),
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _dbService.getEnterpriseEmployees(enterpriseId: widget.enterpriseId),
-        builder: (context, staffSnapshot) {
-          final staffDocs = staffSnapshot.data?.docs ?? [];
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1280),
+          child: StreamBuilder<QuerySnapshot>(
+            stream: _dbService.getEnterpriseEmployees(enterpriseId: widget.enterpriseId),
+            builder: (context, staffSnapshot) {
+              final staffDocs = staffSnapshot.data?.docs ?? [];
 
-          return StreamBuilder<List<QueryDocumentSnapshot>>(
-            stream: _dbService.getEnterpriseAttendanceLogs(widget.enterpriseId),
-            builder: (context, logsSnapshot) {
-              final logs = logsSnapshot.data ?? [];
+              return StreamBuilder<List<QueryDocumentSnapshot>>(
+                stream: _dbService.getEnterpriseAttendanceLogs(widget.enterpriseId),
+                builder: (context, logsSnapshot) {
+                  final logs = logsSnapshot.data ?? [];
 
-              return TabBarView(
-                controller: _tabController,
-                physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                children: [
-                  _buildOverviewTab(staffDocs, logs),
-                  _buildStaffRosterTab(staffDocs, logs),
-                  _buildAttendanceLogsTab(staffDocs, logs),
-                  _buildApprovalsTab(),
-                ],
+                  return TabBarView(
+                    controller: _tabController,
+                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                    children: [
+                      _buildOverviewTab(staffDocs, logs),
+                      _buildStaffRosterTab(staffDocs, logs),
+                      _buildAttendanceLogsTab(staffDocs, logs),
+                      _buildApprovalsTab(),
+                    ],
+                  );
+                },
               );
             },
-          );
-        },
+          ),
+        ),
       ),
     ),
   );

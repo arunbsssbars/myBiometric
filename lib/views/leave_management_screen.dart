@@ -256,8 +256,30 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
           'Leave & Time-Off',
           style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              Theme.of(context).brightness == Brightness.dark
+                  ? Icons.light_mode_rounded
+                  : Icons.dark_mode_rounded,
+            ),
+            tooltip: Theme.of(context).brightness == Brightness.dark
+                ? 'Switch to Light Mode'
+                : 'Switch to Dark Mode',
+            onPressed: () {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              AppThemeNotifier.instance.setThemeMode(
+                isDark ? ThemeMode.light : ThemeMode.dark,
+              );
+            },
+          ),
+          const SizedBox(width: AppSpacing.sm),
+        ],
       ),
-      body: FutureBuilder<DocumentSnapshot>(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 960),
+          child: FutureBuilder<DocumentSnapshot>(
         future: FirebaseFirestore.instance.collection('users').doc(user.uid).get(),
         builder: (context, userSnap) {
           final uData = (userSnap.data?.data() as Map<String, dynamic>?) ?? {};
@@ -379,6 +401,8 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
           );
         },
       ),
+    ),
+  ),
       floatingActionButton: FutureBuilder<DocumentSnapshot>(
         future: FirebaseFirestore.instance.collection('users').doc(user.uid).get(),
         builder: (context, snap) {

@@ -56,8 +56,11 @@ class EnrollFaceUseCase {
     if (enterpriseId.isNotEmpty && !allowAdminAuthorizedOverwrite) {
       final candidates = await _userRepository.getEnterpriseEmployeesList(enterpriseId);
       for (final candidate in candidates) {
-        // Exclude the current user themselves
-        if (candidate.uid == userId) continue;
+        // Exclude the current user themselves (by UID or matching employeeId)
+        if (candidate.uid == userId ||
+            (candidate.employeeId.isNotEmpty && candidate.employeeId.toLowerCase() == employeeId.toLowerCase())) {
+          continue;
+        }
 
         final candidateSig = candidate.facialSignature;
         if (candidateSig == null || candidateSig.isEmpty) continue;

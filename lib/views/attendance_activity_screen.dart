@@ -78,6 +78,22 @@ class _AttendanceActivityScreenState extends State<AttendanceActivityScreen>
           style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
         actions: [
+          IconButton(
+            icon: Icon(
+              Theme.of(context).brightness == Brightness.dark
+                  ? Icons.light_mode_rounded
+                  : Icons.dark_mode_rounded,
+            ),
+            tooltip: Theme.of(context).brightness == Brightness.dark
+                ? 'Switch to Light Mode'
+                : 'Switch to Dark Mode',
+            onPressed: () {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              AppThemeNotifier.instance.setThemeMode(
+                isDark ? ThemeMode.light : ThemeMode.dark,
+              );
+            },
+          ),
           // PDF Export Button
           StreamBuilder<List<QueryDocumentSnapshot>>(
             stream: isEnterpriseAdmin && _tabController.index == 1
@@ -126,26 +142,31 @@ class _AttendanceActivityScreenState extends State<AttendanceActivityScreen>
               )
             : null,
       ),
-      body: user == null
-          ? const Center(child: Text('User not signed in.'))
-          : isEnterpriseAdmin
-              ? TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildLogsList(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 960),
+          child: user == null
+              ? const Center(child: Text('User not signed in.'))
+              : isEnterpriseAdmin
+                  ? TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildLogsList(
+                          stream: _dbService.getUserAttendanceLogs(user.uid),
+                          isEnterprise: false,
+                        ),
+                        _buildLogsList(
+                          stream: _dbService.getEnterpriseAttendanceLogs(widget.enterpriseId),
+                          isEnterprise: true,
+                        ),
+                      ],
+                    )
+                  : _buildLogsList(
                       stream: _dbService.getUserAttendanceLogs(user.uid),
                       isEnterprise: false,
                     ),
-                    _buildLogsList(
-                      stream: _dbService.getEnterpriseAttendanceLogs(widget.enterpriseId),
-                      isEnterprise: true,
-                    ),
-                  ],
-                )
-              : _buildLogsList(
-                  stream: _dbService.getUserAttendanceLogs(user.uid),
-                  isEnterprise: false,
-                ),
+        ),
+      ),
     );
   }
 

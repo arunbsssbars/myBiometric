@@ -8,7 +8,7 @@ rules_version = '2';
 // Document ID: userId (Firebase Auth UID)
 // Fields:
 //   - email: string (required, valid email format)
-//   - role: string (required, 'employee' | 'enterprise_admin' | 'admin' | 'manager' | 'supervisor')
+//   - role: string (required, 'employee' | 'enterprise_admin' | 'admin' | 'manager' | 'supervisor' | 'super_admin')
 //   - name / fullName: string (optional, 1-100 chars)
 //   - enterpriseId: string (optional, 1-50 chars)
 //   - employeeId: string (optional, 1-50 chars)
@@ -137,8 +137,10 @@ service cloud.firestore {
 
     function isSuperAdmin() {
       return isAuthenticated() && (
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'arunbsssbars@gmail.com') ||
         exists(/databases/$(database)/documents/super_admins/$(request.auth.uid)) ||
-        (request.auth.token.email != null && request.auth.token.email.lower() == 'arunbsssbars@gmail.com')
+        (request.auth.token.email != null && exists(/databases/$(database)/documents/super_admins/$(request.auth.token.email.lower()))) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin')
       );
     }
 
@@ -187,7 +189,7 @@ service cloud.firestore {
       return data.keys().hasAll(['email', 'role']) &&
         data.email is string &&
         isValidEmail(data.email) &&
-        data.role in ['employee', 'enterprise_admin', 'admin', 'manager', 'supervisor'] &&
+        data.role in ['employee', 'enterprise_admin', 'admin', 'manager', 'supervisor', 'super_admin'] &&
         isValidOptionalString('name', 0, 100) &&
         isValidOptionalString('fullName', 0, 100) &&
         isValidOptionalString('enterpriseId', 0, 50) &&
@@ -282,25 +284,29 @@ service cloud.firestore {
     // USERS COLLECTION
     match /users/{userId} {
       allow read: if isAuthenticated() && (
-        isOwner(userId) ||
         isSuperAdmin() ||
+        isOwner(userId) ||
         resource.data.enterpriseId != null
       );
 
-      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (
-        request.auth.uid == userId ||
+      allow create: if isAuthenticated() && (
         isSuperAdmin() ||
-        (request.resource.data.enterpriseId != null && (
-          isEnterpriseAdmin(request.resource.data.enterpriseId) ||
-          isAuthenticated()
+        (isValidUser(request.resource.data) && (
+          request.auth.uid == userId ||
+          (request.resource.data.enterpriseId != null && (
+            isEnterpriseAdmin(request.resource.data.enterpriseId) ||
+            isAuthenticated()
+          ))
         ))
       );
 
-      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (
-        isOwner(userId) ||
+      allow update: if isAuthenticated() && (
         isSuperAdmin() ||
-        (resource.data.enterpriseId != null && isEnterpriseAdmin(resource.data.enterpriseId)) ||
-        (request.resource.data.enterpriseId != null && isEnterpriseAdmin(request.resource.data.enterpriseId))
+        (isValidUser(request.resource.data) && (
+          isOwner(userId) ||
+          (resource.data.enterpriseId != null && isEnterpriseAdmin(resource.data.enterpriseId)) ||
+          (request.resource.data.enterpriseId != null && isEnterpriseAdmin(request.resource.data.enterpriseId))
+        ))
       );
 
       allow delete: if isSuperAdmin() || (
