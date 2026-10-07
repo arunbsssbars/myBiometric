@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../core/design_system/design_system.dart';
 import 'package:camera/camera.dart';
@@ -11,6 +12,7 @@ import '../presentation/features/enrollment/view_models/face_enrollment_view_mod
 import '../services/auth_service.dart';
 import '../services/admin_pin_service.dart';
 import '../services/camera_permission_service.dart';
+import '../services/database_service.dart';
 import '../core/network/network_connection_service.dart';
 import 'face_overlay_painter.dart';
 
@@ -53,6 +55,12 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
   DateTime? _lastFaceSeen;
   static const Duration _faceTimeout = Duration(seconds: 20);
 
+  // Web PIN configuration state
+  final TextEditingController _webPinController = TextEditingController();
+  bool _isSavingWebPin = false;
+  String? _webPinMessage;
+  bool _webPinSuccess = false;
+
   String? get _effectiveUserId {
     if (widget.targetUserId != null && widget.targetUserId!.trim().isNotEmpty) {
       return widget.targetUserId!.trim();
@@ -91,6 +99,11 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
   }
 
   Future<void> _setupCamera() async {
+    if (kIsWeb) {
+      if (mounted) setState(() {});
+      return;
+    }
+
     final granted = await CameraPermissionService().requestPermission();
     if (!granted) {
       if (!mounted) return;
@@ -98,37 +111,42 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
       return;
     }
 
-    final cameras = await availableCameras();
-    final frontCamera = cameras.firstWhere(
-      (c) => c.lensDirection == CameraLensDirection.front,
-      orElse: () => cameras.first,
-    );
+    try {
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) return;
+      final frontCamera = cameras.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.front,
+        orElse: () => cameras.first,
+      );
 
-    _cameraController = CameraController(
-      frontCamera,
-      ResolutionPreset.medium,
-      enableAudio: false,
-      imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.nv21 : ImageFormatGroup.bgra8888,
-    );
+      _cameraController = CameraController(
+        frontCamera,
+        ResolutionPreset.medium,
+        enableAudio: false,
+        imageFormatGroup: (!kIsWeb && Platform.isAndroid) ? ImageFormatGroup.nv21 : ImageFormatGroup.bgra8888,
+      );
 
-    await _cameraController!.initialize();
-    await _viewModel.initializeML();
-    if (!mounted) return;
+      await _cameraController!.initialize();
+      await _viewModel.initializeML();
+      if (!mounted) return;
 
-    // Camera sensor auto-exposure warmup
-    await Future.delayed(const Duration(milliseconds: 300));
-    if (!mounted) return;
+      // Camera sensor auto-exposure warmup
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (!mounted) return;
 
-    setState(() {});
+      setState(() {});
 
-    _cameraController!.startImageStream((CameraImage image) {
-      if (!_isProcessingFrame && mounted && !_viewModel.isSuccess && _viewModel.collisionException == null) {
-        _processCameraImage(image);
-      }
-    });
+      _cameraController!.startImageStream((CameraImage image) {
+        if (!_isProcessingFrame && mounted && !_viewModel.isSuccess && _viewModel.collisionException == null) {
+          _processCameraImage(image);
+        }
+      });
 
-    _lastFaceSeen = DateTime.now();
-    _startFailureWatcher();
+      _lastFaceSeen = DateTime.now();
+      _startFailureWatcher();
+    } catch (e) {
+      debugPrint("Camera setup error: $e");
+    }
   }
 
   void _startFailureWatcher() async {
@@ -405,6 +423,7 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
 
   @override
   void dispose() {
+    _webPinController.dispose();
     _cameraController?.stopImageStream();
     _cameraController?.dispose();
     _faceDetector.close();
@@ -430,6 +449,10 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (kIsWeb) {
+      return _buildWebAdvisoryScreen(context);
+    }
+
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return Scaffold(
         backgroundColor: context.colors.surfaceContainerLowest,
@@ -551,5 +574,330 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
         );
       },
     );
+  }
+
+  Widget _buildWebAdvisoryScreen(BuildContext context) {
+    return Scaffold(
+      backgroundColor: context.colors.surfaceContainerLowest,
+      appBar: AppBar(
+        title: const Text('Face ID Biometrics'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 580),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 1. Icon & Header Badge
+                  Center(
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: context.colors.primaryContainer.withValues(alpha: 0.5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.face_retouching_natural_rounded,
+                        size: 44,
+                        color: context.colors.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Biometric Face Scanner',
+                    textAlign: TextAlign.center,
+                    style: context.text.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: context.colors.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    margin: const EdgeInsets.symmetric(horizontal: 32),
+                    decoration: BoxDecoration(
+                      color: context.colors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: context.colors.primary.withValues(alpha: 0.2)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.info_outline, size: 16, color: context.colors.primary),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'Mobile & Biometric Terminal Optimized',
+                            overflow: TextOverflow.ellipsis,
+                            style: context.text.labelMedium?.copyWith(
+                              color: context.colors.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // 2. Technical Advisory Card
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: context.colors.outlineVariant),
+                    ),
+                    color: context.colors.surface,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.memory_rounded, color: context.colors.secondary),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Neural Engine Architecture',
+                                style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Real-time 3D facial liveness verification requires high-speed 30-FPS frame streaming and hardware neural coprocessors (Google Play Services Vision ML Kit on Android & Apple Neural Engine on iOS).',
+                            style: context.text.bodyMedium?.copyWith(
+                              color: context.colors.onSurfaceVariant,
+                              height: 1.45,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Web browser sandboxes do not provide native access to the neural framework or continuous hardware camera streams.',
+                            style: context.text.bodyMedium?.copyWith(
+                              color: context.colors.onSurfaceVariant,
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 3. Action Card: Mobile App Registration
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: context.colors.outlineVariant),
+                    ),
+                    color: context.colors.surface,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.smartphone_rounded, color: context.colors.primary),
+                              const SizedBox(width: 10),
+                              Text(
+                                'How to Register Face ID',
+                                style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            '1. Open the myBiometric App on your Android or iOS device.\n2. Tap Biometric Registration on your Profile or Dashboard.\n3. Complete the 5-step guided 3D pose and blink verification (~15s).\n4. Your biometric profile instantly syncs with all enterprise office terminals.',
+                            style: context.text.bodyMedium?.copyWith(
+                              color: context.colors.onSurfaceVariant,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 4. Web & Kiosk PIN Setup Card
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: context.colors.outlineVariant),
+                    ),
+                    color: context.colors.surface,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.pin_rounded, color: context.status.warning.color),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Set Web & Kiosk Secret PIN',
+                                style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Configure a 4 to 6 digit personal secret PIN to punch attendance directly on any web terminal or kiosk station without needing a camera.',
+                            style: context.text.bodyMedium?.copyWith(
+                              color: context.colors.onSurfaceVariant,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _webPinController,
+                                  keyboardType: TextInputType.number,
+                                  obscureText: true,
+                                  maxLength: 6,
+                                  decoration: InputDecoration(
+                                    labelText: '4-6 Digit Secret PIN',
+                                    hintText: 'e.g. 5678',
+                                    counterText: '',
+                                    prefixIcon: const Icon(Icons.lock_outline),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              FilledButton(
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                onPressed: _isSavingWebPin ? null : _saveWebPin,
+                                child: _isSavingWebPin
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      )
+                                    : const Text('Save PIN'),
+                              ),
+                            ],
+                          ),
+                          if (_webPinMessage != null) ...[
+                            const SizedBox(height: 10),
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: _webPinSuccess ? context.status.success.container : context.status.danger.container,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: _webPinSuccess ? context.status.success.border : context.status.danger.border,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _webPinSuccess ? Icons.check_circle_outline : Icons.error_outline,
+                                    size: 16,
+                                    color: _webPinSuccess ? context.status.success.color : context.status.danger.color,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _webPinMessage!,
+                                      style: context.text.bodySmall?.copyWith(
+                                        color: _webPinSuccess ? context.status.success.color : context.status.danger.color,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // 5. Back Action
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Return to Dashboard'),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _saveWebPin() async {
+    final pin = _webPinController.text.trim();
+    if (pin.length < 4 || pin.length > 6 || int.tryParse(pin) == null) {
+      setState(() {
+        _webPinMessage = 'Please enter a valid 4 to 6 digit numeric PIN.';
+        _webPinSuccess = false;
+      });
+      return;
+    }
+
+    final targetUid = _effectiveUserId;
+    if (targetUid == null) {
+      setState(() {
+        _webPinMessage = 'User not identified. Please sign in again.';
+        _webPinSuccess = false;
+      });
+      return;
+    }
+
+    setState(() => _isSavingWebPin = true);
+    try {
+      await DatabaseService().updateEmployeePersonalPin(
+        userId: targetUid,
+        newPin: pin,
+      );
+      if (mounted) {
+        setState(() {
+          _isSavingWebPin = false;
+          _webPinMessage = 'Secret PIN saved successfully! You can now authenticate on Kiosk and Web.';
+          _webPinSuccess = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Employee Secret PIN saved successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSavingWebPin = false;
+          _webPinMessage = 'Failed to save PIN: $e';
+          _webPinSuccess = false;
+        });
+      }
+    }
   }
 }

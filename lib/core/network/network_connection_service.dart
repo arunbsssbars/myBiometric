@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// Lightweight network connectivity verification service.
@@ -10,6 +11,7 @@ class NetworkConnectionService {
 
   /// Checks if an active internet connection can reach public servers.
   static Future<bool> isConnected() async {
+    if (kIsWeb) return true; // Web browsers execute HTTP/WebSocket directly
     try {
       final result = await InternetAddress.lookup('google.com')
           .timeout(const Duration(seconds: 3));
