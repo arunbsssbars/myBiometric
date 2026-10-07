@@ -16,7 +16,7 @@ class VerifyFacePunchInUseCase {
 
   VerifyFacePunchInUseCase({
     required AttendanceRepository attendanceRepository,
-    this.defaultThreshold = 0.68,
+    this.defaultThreshold = 0.60,
   }) : _attendanceRepository = attendanceRepository;
 
   static final Map<String, List<double>> _normalizedCandidateCache = {};

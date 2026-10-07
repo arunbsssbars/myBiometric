@@ -28,27 +28,78 @@ class UserRepositoryImpl implements UserRepository {
         .collection('users')
         .doc(userId)
         .set(updateData, SetOptions(merge: true));
+
+    // Also mirror into enterprise employees subcollection if enterpriseId is known
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      final entId = userDoc.data()?['enterpriseId']?.toString();
+      if (entId != null && entId.isNotEmpty) {
+        await _firestore
+            .collection('enterprises')
+            .doc(entId)
+            .collection('employees')
+            .doc(userId)
+            .set(updateData, SetOptions(merge: true));
+      }
+    } catch (_) {}
   }
 
   @override
   Stream<List<EmployeeProfile>> getEnterpriseEmployees(String enterpriseId) {
+    final cleanId = enterpriseId.trim();
     return _firestore
         .collection('users')
-        .where('enterpriseId', isEqualTo: enterpriseId)
+        .where('enterpriseId', isEqualTo: cleanId)
         .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) => _mapDocToProfile(doc)).toList();
+        .asyncMap((userSnapshot) async {
+      final Map<String, EmployeeProfile> profileMap = {};
+      for (final doc in userSnapshot.docs) {
+        profileMap[doc.id] = _mapDocToProfile(doc);
+      }
+      try {
+        final subcollectionDocs = await _firestore
+            .collection('enterprises')
+            .doc(cleanId)
+            .collection('employees')
+            .get();
+        for (final doc in subcollectionDocs.docs) {
+          if (!profileMap.containsKey(doc.id)) {
+            profileMap[doc.id] = _mapDocToProfile(doc);
+          }
+        }
+      } catch (_) {}
+      return profileMap.values.toList();
     });
   }
 
   @override
   Future<List<EmployeeProfile>> getEnterpriseEmployeesList(String enterpriseId) async {
-    final snapshot = await _firestore
-        .collection('users')
-        .where('enterpriseId', isEqualTo: enterpriseId)
-        .get();
+    final cleanId = enterpriseId.trim();
+    final Map<String, EmployeeProfile> profileMap = {};
+    try {
+      final userSnapshot = await _firestore
+          .collection('users')
+          .where('enterpriseId', isEqualTo: cleanId)
+          .get();
+      for (final doc in userSnapshot.docs) {
+        profileMap[doc.id] = _mapDocToProfile(doc);
+      }
+    } catch (_) {}
 
-    return snapshot.docs.map((doc) => _mapDocToProfile(doc)).toList();
+    try {
+      final subcollectionDocs = await _firestore
+          .collection('enterprises')
+          .doc(cleanId)
+          .collection('employees')
+          .get();
+      for (final doc in subcollectionDocs.docs) {
+        if (!profileMap.containsKey(doc.id)) {
+          profileMap[doc.id] = _mapDocToProfile(doc);
+        }
+      }
+    } catch (_) {}
+
+    return profileMap.values.toList();
   }
 
   @override

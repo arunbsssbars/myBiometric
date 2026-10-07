@@ -169,6 +169,7 @@ class KioskViewModel extends ChangeNotifier {
           .listen((candidates) {
         if (candidates.isNotEmpty) {
           _candidates = candidates;
+          OfflineRosterCacheService().cacheRoster(enterpriseId, _candidates);
         }
         if (!_faceInFrame && !_showSuccessToast) {
           if (_candidates.isEmpty) {

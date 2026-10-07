@@ -23,10 +23,10 @@ class FaceValidationUtils {
   static FaceValidationResult validateFace({
     required Face face,
     required Size imageSize,
-    double minFaceWidth = 100.0,
-    double maxYaw = 12.0,
-    double maxRoll = 10.0,
-    double maxPitch = 15.0,
+    double minFaceWidth = 85.0,
+    double maxYaw = 24.0,
+    double maxRoll = 18.0,
+    double maxPitch = 22.0,
     bool allowEyesClosed = false,
   }) {
     // 1. Minimum Face Size
@@ -51,23 +51,13 @@ class FaceValidationUtils {
       return const FaceValidationResult.invalid("Align your head vertically");
     }
 
-    // 3. Landmark Completeness (Must have core landmarks to prevent partial-face matching)
+    // 3. Landmark Completeness
+    // During active blink detection, eyelids are temporarily closed so eye landmarks may be omitted
     final leftEye = face.landmarks[FaceLandmarkType.leftEye];
     final rightEye = face.landmarks[FaceLandmarkType.rightEye];
-    final nose = face.landmarks[FaceLandmarkType.noseBase];
-    final mouth = face.landmarks[FaceLandmarkType.bottomMouth];
 
-    // During active blink detection, eyelids are temporarily closed so eye landmarks may be omitted
-    if (!allowEyesClosed && (leftEye == null || rightEye == null)) {
-      return const FaceValidationResult.invalid("Both eyes must be visible");
-    }
-
-    if (nose == null) {
-      return const FaceValidationResult.invalid("Nose must be fully visible");
-    }
-
-    if (mouth == null) {
-      return const FaceValidationResult.invalid("Mouth must be fully visible");
+    if (!allowEyesClosed && (leftEye == null && rightEye == null)) {
+      return const FaceValidationResult.invalid("Eyes must be visible to camera");
     }
 
     // 4. Boundary Padding (Ensure face is not clipped at image borders)

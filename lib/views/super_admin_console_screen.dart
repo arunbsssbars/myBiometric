@@ -95,24 +95,48 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
             ),
           ),
           IconButton(
-            icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
-            tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-            onPressed: () {
-              AppThemeNotifier.instance.setThemeMode(
-                isDark ? ThemeMode.light : ThemeMode.dark,
-              );
-            },
-          ),
-          IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh Console',
             onPressed: () => setState(() {}),
           ),
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            tooltip: 'Sign Out',
-            onPressed: () => _confirmSignOut(context),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (val) {
+              if (val == 'toggle_theme') {
+                AppThemeNotifier.instance.setThemeMode(
+                  isDark ? ThemeMode.light : ThemeMode.dark,
+                );
+              } else if (val == 'logout') {
+                _confirmSignOut(context);
+              }
+            },
+            itemBuilder: (ctx) => [
+              PopupMenuItem(
+                value: 'toggle_theme',
+                child: Row(
+                  children: [
+                    Icon(
+                      isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
+                    SizedBox(width: 8),
+                    Text('Sign Out', style: TextStyle(color: Colors.redAccent)),
+                  ],
+                ),
+              ),
+            ],
           ),
+          const SizedBox(width: 4),
         ],
         bottom: TabBar(
           controller: _tabController,

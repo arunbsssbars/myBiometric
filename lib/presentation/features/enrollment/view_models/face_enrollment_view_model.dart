@@ -37,6 +37,7 @@ class FaceEnrollmentViewModel extends ChangeNotifier {
   bool _isProcessing = false;
   double _progress = 0.0;
   final List<List<double>> _signatures = [];
+  final List<List<double>> _frontalSignatures = [];
   BiometricCollisionException? _collisionException;
 
   // Liveness blink detection tracking
@@ -175,6 +176,7 @@ class FaceEnrollmentViewModel extends ChangeNotifier {
           if (yaw.abs() <= 10.0 && pitch.abs() <= 12.0) {
             final sig = await _mlService.extractFaceSignature(image, face, sensorOrientation: sensorOrientation);
             _signatures.add(sig);
+            _frontalSignatures.add(sig);
             _currentPhase = EnrollmentPhase.turnLeft;
             _progress = 0.25;
             _lastPhaseChangeTime = now;
@@ -310,12 +312,13 @@ class FaceEnrollmentViewModel extends ChangeNotifier {
     _borderColor = Colors.blueAccent;
     notifyListeners();
 
+    final embeddingsToSave = _frontalSignatures.isNotEmpty ? _frontalSignatures : _signatures;
     await _enrollFaceUseCase.execute(
       userId: userId,
       enterpriseId: enterpriseId,
       fullName: fullName,
       employeeId: employeeId,
-      rawEmbeddings: _signatures,
+      rawEmbeddings: embeddingsToSave,
     );
 
     _currentPhase = EnrollmentPhase.completed;
@@ -339,12 +342,13 @@ class FaceEnrollmentViewModel extends ChangeNotifier {
     _borderColor = Colors.blueAccent;
     notifyListeners();
 
+    final embeddingsToSave = _frontalSignatures.isNotEmpty ? _frontalSignatures : _signatures;
     await _enrollFaceUseCase.execute(
       userId: userId,
       enterpriseId: enterpriseId,
       fullName: fullName,
       employeeId: employeeId,
-      rawEmbeddings: _signatures,
+      rawEmbeddings: embeddingsToSave,
       allowAdminAuthorizedOverwrite: true,
     );
 

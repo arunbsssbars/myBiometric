@@ -424,28 +424,16 @@ class _EnterpriseAdminDashboardScreenState
                 enterpriseId: widget.enterpriseId,
                 isAdmin: true,
               ),
-            IconButton(
-              icon: Icon(
-                Theme.of(context).brightness == Brightness.dark
-                    ? Icons.light_mode_rounded
-                    : Icons.dark_mode_rounded,
-                color: context.colors.textPrimary,
-              ),
-              tooltip: Theme.of(context).brightness == Brightness.dark
-                  ? 'Switch to Light Mode'
-                  : 'Switch to Dark Mode',
-              onPressed: () {
-                final isDark = Theme.of(context).brightness == Brightness.dark;
-                AppThemeNotifier.instance.setThemeMode(
-                  isDark ? ThemeMode.light : ThemeMode.dark,
-                );
-              },
-            ),
             PopupMenuButton<String>(
               tooltip: 'Admin Menu',
               icon: Icon(Icons.more_vert_rounded, color: context.colors.textPrimary),
               onSelected: (val) async {
-                if (val == 'command_palette') {
+                if (val == 'toggle_theme') {
+                  final isDark = Theme.of(context).brightness == Brightness.dark;
+                  AppThemeNotifier.instance.setThemeMode(
+                    isDark ? ThemeMode.light : ThemeMode.dark,
+                  );
+                } else if (val == 'command_palette') {
                   UniversalCommandPalette.show(context, commands: _getAdminCommands());
                 } else if (val == 'profile') {
                   Navigator.push(
@@ -482,6 +470,24 @@ class _EnterpriseAdminDashboardScreenState
               }
             },
             itemBuilder: (ctx) => [
+              PopupMenuItem(
+                value: 'toggle_theme',
+                child: Row(
+                  children: [
+                    Icon(
+                      Theme.of(context).brightness == Brightness.dark
+                          ? Icons.light_mode_rounded
+                          : Icons.dark_mode_rounded,
+                      color: ctx.colors.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(Theme.of(context).brightness == Brightness.dark
+                        ? 'Switch to Light Mode'
+                        : 'Switch to Dark Mode'),
+                  ],
+                ),
+              ),
               PopupMenuItem(
                 value: 'command_palette',
                 child: Row(

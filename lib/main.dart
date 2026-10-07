@@ -109,8 +109,8 @@ class _UserStateRouterState extends State<UserStateRouter> {
     try {
       final user = AuthService().currentUser;
       if (user != null) {
-        final isSuperAdminEmail = user.email != null &&
-            user.email!.trim().toLowerCase() == 'arunbsssbars@gmail.com';
+        final userEmail = user.email?.trim().toLowerCase();
+        final isSuperAdminEmail = userEmail == 'arunbsssbars@gmail.com';
 
         if (isSuperAdminEmail) {
           _isSuperAdmin = true;
@@ -131,41 +131,120 @@ class _UserStateRouterState extends State<UserStateRouter> {
         }
 
         final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        String? eId;
         if (doc.exists && doc.data() != null) {
-          final data = doc.data()!;
-          String? eId = data['enterpriseId']?.toString();
+          eId = doc.data()!['enterpriseId']?.toString();
+        }
 
-          if ((eId == null || eId.isEmpty) && isSuperAdminEmail) {
+        // 1. If super admin has no enterprise assigned, auto-assign first available enterprise
+        if ((eId == null || eId.isEmpty) && isSuperAdminEmail) {
+          try {
+            final allEnts = await FirebaseFirestore.instance.collection('enterprises').limit(1).get();
+            if (allEnts.docs.isNotEmpty) {
+              eId = allEnts.docs.first.id;
+              await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+                'enterpriseId': eId,
+              }, SetOptions(merge: true));
+            }
+          } catch (_) {}
+        }
+
+        // 2. If non-super admin has no enterprise assigned, check if they are the admin of any enterprise
+        if ((eId == null || eId.isEmpty) && userEmail != null && userEmail.isNotEmpty) {
+          try {
+            // Check by adminEmail
+            final adminEnts = await FirebaseFirestore.instance
+                .collection('enterprises')
+                .where('adminEmail', isEqualTo: userEmail)
+                .limit(1)
+                .get();
+            if (adminEnts.docs.isNotEmpty) {
+              final entDoc = adminEnts.docs.first;
+              eId = entDoc.id;
+              await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+                'email': user.email,
+                'role': 'enterprise_admin',
+                'enterpriseId': eId,
+                'linkedEnterprises': FieldValue.arrayUnion([eId]),
+              }, SetOptions(merge: true));
+              if (entDoc.data()['adminUid'] == null || entDoc.data()['adminUid'] == '') {
+                await entDoc.reference.set({'adminUid': user.uid}, SetOptions(merge: true));
+              }
+            }
+          } catch (e) {
+            debugPrint("Error auto-linking admin enterprise: $e");
+          }
+
+          // Check by adminUid if not found by adminEmail
+          if (eId == null || eId.isEmpty) {
             try {
-              final allEnts = await FirebaseFirestore.instance.collection('enterprises').limit(1).get();
-              if (allEnts.docs.isNotEmpty) {
-                eId = allEnts.docs.first.id;
+              final uidEnts = await FirebaseFirestore.instance
+                  .collection('enterprises')
+                  .where('adminUid', isEqualTo: user.uid)
+                  .limit(1)
+                  .get();
+              if (uidEnts.docs.isNotEmpty) {
+                final entDoc = uidEnts.docs.first;
+                eId = entDoc.id;
                 await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+                  'email': user.email,
+                  'role': 'enterprise_admin',
                   'enterpriseId': eId,
+                  'linkedEnterprises': FieldValue.arrayUnion([eId]),
                 }, SetOptions(merge: true));
               }
             } catch (_) {}
           }
 
-          if (eId != null && eId.isNotEmpty) {
-            final entDoc = await FirebaseFirestore.instance.collection('enterprises').doc(eId).get();
-            if (entDoc.exists) {
-              final entData = entDoc.data() ?? {};
-              final cName = entData['name'] ?? entData['companyName'] ?? entData['enterpriseName'] ?? eId;
-              if (mounted) {
-                setState(() {
-                  _hasEnterprise = true;
-                  _enterpriseId = eId!;
-                  _companyName = cName.toString();
-                  _isLoading = false;
-                });
+          // Check if user is registered in the roster employees subcollection of any enterprise
+          if (eId == null || eId.isEmpty) {
+            try {
+              final allEnts = await FirebaseFirestore.instance.collection('enterprises').get();
+              for (final ent in allEnts.docs) {
+                final empMatches = await ent.reference
+                    .collection('employees')
+                    .where('email', isEqualTo: userEmail)
+                    .limit(1)
+                    .get();
+                if (empMatches.docs.isNotEmpty) {
+                  eId = ent.id;
+                  final empData = empMatches.docs.first.data();
+                  await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+                    'email': user.email,
+                    'fullName': empData['fullName'] ?? empData['name'] ?? user.displayName,
+                    'employeeId': empData['employeeId'] ?? '',
+                    'role': empData['role'] ?? 'employee',
+                    'enterpriseId': eId,
+                    'linkedEnterprises': FieldValue.arrayUnion([eId]),
+                  }, SetOptions(merge: true));
+                  break;
+                }
               }
-              return;
-            } else if (!isSuperAdminEmail) {
-              await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-                'enterpriseId': FieldValue.delete(),
+            } catch (e) {
+              debugPrint("Error checking employee roster: $e");
+            }
+          }
+        }
+
+        // 3. Resolve and activate the enterprise workspace
+        if (eId != null && eId.isNotEmpty) {
+          final entDoc = await FirebaseFirestore.instance.collection('enterprises').doc(eId).get();
+          if (entDoc.exists) {
+            final entData = entDoc.data() ?? {};
+            final cName = entData['name'] ?? entData['companyName'] ?? entData['enterpriseName'] ?? eId;
+            if (mounted) {
+              setState(() {
+                _hasEnterprise = true;
+                _enterpriseId = eId!;
+                _companyName = cName.toString();
+                _isLoading = false;
               });
             }
+            return;
+          } else if (!isSuperAdminEmail) {
+            await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+              'enterpriseId': FieldValue.delete(),
+            });
           }
         }
       }
@@ -546,70 +625,81 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
           ],
         ),
         actions: [
-          IconButton(
-            icon: Icon(
-              Theme.of(context).brightness == Brightness.dark
-                  ? Icons.light_mode_rounded
-                  : Icons.dark_mode_rounded,
-            ),
-            tooltip: Theme.of(context).brightness == Brightness.dark
-                ? 'Switch to Light Mode'
-                : 'Switch to Dark Mode',
-            onPressed: () {
-              final isDark = Theme.of(context).brightness == Brightness.dark;
-              AppThemeNotifier.instance.setThemeMode(
-                isDark ? ThemeMode.light : ThemeMode.dark,
-              );
-            },
-          ),
-          IconButton(
-            tooltip: 'Sign Out',
-            onPressed: () async {
-              await AuthService().signOut();
-              if (context.mounted) {
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              }
-            },
-            icon: const Icon(Icons.logout, color: Colors.redAccent, size: 20),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: context.colors.surface,
-          border: Border(top: BorderSide(color: context.colors.outlineVariant)),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 680),
-              child: Row(
-                children: [
-                  Icon(Icons.account_circle, size: 20, color: context.colors.onSurfaceVariant),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      user?.email ?? 'Logged in',
-                      style: TextStyle(fontSize: 12, color: context.colors.onSurfaceVariant),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+          if (user?.email != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 4.0),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  TextButton(
-                    onPressed: () async {
-                      await AuthService().signOut();
-                      if (context.mounted) {
-                        Navigator.of(context).popUntil((route) => route.isFirst);
-                      }
-                    },
-                    child: const Text('Sign Out', style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.account_circle, size: 16),
+                      const SizedBox(width: 4),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 120),
+                        child: Text(
+                          user!.email!,
+                          style: const TextStyle(fontSize: 11),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (val) async {
+              if (val == 'toggle_theme') {
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+                AppThemeNotifier.instance.setThemeMode(
+                  isDark ? ThemeMode.light : ThemeMode.dark,
+                );
+              } else if (val == 'sign_out') {
+                await AuthService().signOut();
+                if (context.mounted) {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                }
+              }
+            },
+            itemBuilder: (ctx) => [
+              PopupMenuItem(
+                value: 'toggle_theme',
+                child: Row(
+                  children: [
+                    Icon(
+                      Theme.of(context).brightness == Brightness.dark
+                          ? Icons.light_mode_rounded
+                          : Icons.dark_mode_rounded,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(Theme.of(context).brightness == Brightness.dark
+                        ? 'Switch to Light Mode'
+                        : 'Switch to Dark Mode'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'sign_out',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.redAccent, size: 20),
+                    SizedBox(width: 8),
+                    Text('Sign Out', style: TextStyle(color: Colors.redAccent)),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: Center(
         child: ConstrainedBox(
@@ -1430,6 +1520,8 @@ class _HomeScreenState extends State<HomeScreen> {
           title: Text(
             displayName,
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           actions: [
             // Universal Command Palette button (Mobile tap & Desktop click)
@@ -1478,22 +1570,7 @@ class _HomeScreenState extends State<HomeScreen> {
               tooltip: 'Kiosk Mode',
               onPressed: () => _openKioskMode(enterpriseId),
             ),
-            IconButton(
-              icon: Icon(
-                Theme.of(context).brightness == Brightness.dark
-                    ? Icons.light_mode_rounded
-                    : Icons.dark_mode_rounded,
-              ),
-              tooltip: Theme.of(context).brightness == Brightness.dark
-                  ? 'Switch to Light Mode'
-                  : 'Switch to Dark Mode',
-              onPressed: () {
-                final isDark = Theme.of(context).brightness == Brightness.dark;
-                AppThemeNotifier.instance.setThemeMode(
-                  isDark ? ThemeMode.light : ThemeMode.dark,
-                );
-              },
-            ),
+
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (val) async {
@@ -1601,11 +1678,34 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (_) => ProfileSettingsScreen(enterpriseId: widget.enterpriseId),
                   ),
                 );
+              } else if (val == 'toggle_theme') {
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+                AppThemeNotifier.instance.setThemeMode(
+                  isDark ? ThemeMode.light : ThemeMode.dark,
+                );
               } else if (val == 'logout') {
                 await AuthService().signOut();
               }
             },
             itemBuilder: (ctx) => [
+              PopupMenuItem(
+                value: 'toggle_theme',
+                child: Row(
+                  children: [
+                    Icon(
+                      Theme.of(context).brightness == Brightness.dark
+                          ? Icons.light_mode_rounded
+                          : Icons.dark_mode_rounded,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(Theme.of(context).brightness == Brightness.dark
+                        ? 'Switch to Light Mode'
+                        : 'Switch to Dark Mode'),
+                  ],
+                ),
+              ),
               if (_userRole == 'super_admin')
                 const PopupMenuItem(
                   value: 'super_admin',

@@ -50,11 +50,14 @@ class MLService {
         ? img.copyRotate(rawImage, angle: sensorOrientation)
         : rawImage;
 
-    // 3. Crop the face using the bounding box from ML Kit (clamped to image bounds)
-    int x = face.boundingBox.left.toInt().clamp(0, image.width - 1);
-    int y = face.boundingBox.top.toInt().clamp(0, image.height - 1);
-    int width = face.boundingBox.width.toInt();
-    int height = face.boundingBox.height.toInt();
+    // 3. Crop the face using the bounding box from ML Kit with a 12% safety margin
+    // This captures the complete facial boundary (forehead, chin, jawline) for MobileFaceNet
+    final int padX = (face.boundingBox.width * 0.12).toInt();
+    final int padY = (face.boundingBox.height * 0.12).toInt();
+    int x = (face.boundingBox.left - padX).toInt().clamp(0, image.width - 1);
+    int y = (face.boundingBox.top - padY).toInt().clamp(0, image.height - 1);
+    int width = (face.boundingBox.width + 2 * padX).toInt();
+    int height = (face.boundingBox.height + 2 * padY).toInt();
     
     // Ensure width and height do not exceed image bounds
     if (x + width > image.width) width = image.width - x;

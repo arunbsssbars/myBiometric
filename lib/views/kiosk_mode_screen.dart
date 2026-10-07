@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/repositories/attendance_repository_impl.dart';
 import '../data/repositories/user_repository_impl.dart';
@@ -111,6 +112,18 @@ class _KioskModeScreenState extends State<KioskModeScreen> with SingleTickerProv
     if (kIsWeb) {
       if (mounted) setState(() {});
       return;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedMirror = prefs.getBool('kiosk_selfie_view_mirrored');
+      if (savedMirror != null && mounted) {
+        setState(() {
+          _mirrorOverride = savedMirror;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading kiosk mirror pref: $e");
     }
 
     try {
@@ -860,12 +873,16 @@ class _KioskModeScreenState extends State<KioskModeScreen> with SingleTickerProv
                                     size: 20,
                                   ),
                                   onPressed: () {
+                                    final newMirror = !_shouldMirrorPreview;
                                     setState(() {
-                                      _mirrorOverride = !_shouldMirrorPreview;
+                                      _mirrorOverride = newMirror;
                                     });
+                                    SharedPreferences.getInstance().then((prefs) {
+                                      prefs.setBool('kiosk_selfie_view_mirrored', newMirror);
+                                    }).catchError((_) {});
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text(_shouldMirrorPreview
+                                        content: Text(newMirror
                                             ? 'Selfie Mirror Mode Enabled (Mirrored)'
                                             : 'Direct Sensor Mode Enabled (Un-mirrored)'),
                                         duration: const Duration(seconds: 1),
