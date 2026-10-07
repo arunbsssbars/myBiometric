@@ -20,6 +20,8 @@ import 'whos_in_whos_out_board.dart';
 import 'add_staff_screen.dart';
 import 'bulk_roster_import_screen.dart';
 import 'enterprise_policies_hub_screen.dart';
+import 'executive_command_center_screen.dart';
+import '../services/executive_command_center_service.dart';
 import '../presentation/widgets/universal_command_palette.dart';
 
 class EnterpriseAdminDashboardScreen extends StatefulWidget {
@@ -1234,6 +1236,33 @@ class _EnterpriseAdminDashboardScreenState
                 title: 'Audit Trail',
                 subtitle: 'Compliance logs',
                 onTap: _showAuditTrailSheet,
+              ),
+              _buildQuickActionCard(
+                icon: Icons.speed_rounded,
+                iconColor: Colors.deepPurple,
+                bgColor: Colors.deepPurple.withValues(alpha: 0.1),
+                title: 'Fleet Cockpit',
+                subtitle: 'Real-time KPIs',
+                onTap: () {
+                  final metrics = ExecutiveCommandCenterService().synthesizeMetrics(
+                    enterpriseId: widget.enterpriseId,
+                    totalTerminals: 10,
+                    onlineTerminals: 10,
+                    totalEmployees: staff.length,
+                    onSiteEmployees: todayLogs.where((l) => (l.data() as Map<String, dynamic>?)?['type'] == 'PUNCH_IN').length,
+                    punchesLastHour: todayLogs.length,
+                    pendingRegularizations: 0,
+                    tamperAlerts: 0,
+                  );
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ExecutiveCommandCenterScreen(
+                        metrics: metrics,
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),
