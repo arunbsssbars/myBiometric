@@ -54,3 +54,6 @@ build/ios_derived
 
 
 .firebase/
+
+.gradle/
+android/.gradle/

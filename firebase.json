@@ -8,6 +8,10 @@
     ],
     "rewrites": [
       {
+        "source": "/verify-email",
+        "destination": "/verify-email.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

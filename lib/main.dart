@@ -19,6 +19,7 @@ import 'views/leave_management_screen.dart';
 import 'views/profile_settings_screen.dart';
 import 'views/attendance_activity_screen.dart';
 import 'views/super_admin_console_screen.dart';
+import 'views/email_verification_screen.dart';
 import 'presentation/widgets/universal_command_palette.dart';
 
 void main() async {
@@ -69,6 +70,12 @@ class AuthWrapper extends StatelessWidget {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
         if (snapshot.hasData && snapshot.data != null) {
+          final user = snapshot.data!;
+          // Route unverified email users to the verification waiting screen
+          final isPasswordProvider = user.providerData.any((p) => p.providerId == 'password');
+          if (isPasswordProvider && !user.emailVerified) {
+            return const EmailVerificationScreen();
+          }
           return const UserStateRouter();
         }
         return const LoginScreen();

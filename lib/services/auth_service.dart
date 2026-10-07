@@ -138,7 +138,10 @@ class AuthService {
   // Email & Password Registration
   Future<UserCredential?> registerWithEmail(String email, String password) async {
     try {
-      return await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      final credential = await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      // Immediately send branded email verification with redirect ActionCodeSettings
+      await sendEmailVerification(userOverride: credential.user);
+      return credential;
     } on FirebaseAuthException catch (e) {
       if (e.code == 'network-request-failed') {
         throw const AuthNetworkException(
@@ -153,6 +156,41 @@ class AuthService {
         );
       }
       rethrow;
+    }
+  }
+
+  // Send Branded Email Verification Link with Redirect
+  Future<bool> sendEmailVerification({User? userOverride}) async {
+    final user = userOverride ?? _auth.currentUser;
+    if (user == null) return false;
+    try {
+      final settings = ActionCodeSettings(
+        url: 'https://officebiometric-e15fd.web.app/verify-email?appName=myBiometric',
+        handleCodeInApp: false,
+        androidPackageName: 'com.example.mybiometric_app',
+        androidInstallApp: true,
+        androidMinimumVersion: '1',
+        iOSBundleId: 'com.example.mybiometricApp',
+      );
+      await user.sendEmailVerification(settings);
+      return true;
+    } catch (e) {
+      debugPrint('[AuthService] ActionCodeSettings email verification failed, falling back: $e');
+      try {
+        await user.sendEmailVerification();
+        return true;
+      } catch (err) {
+        debugPrint('[AuthService] Fallback email verification failed: $err');
+        return false;
+      }
+    }
+  }
+
+  // Reload current user from Firebase
+  Future<void> reloadUser() async {
+    final user = _auth.currentUser;
+    if (user != null) {
+      await user.reload();
     }
   }
 

@@ -79,9 +79,12 @@
 		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.example.mybiometricApp</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>com.googleusercontent.apps.774828276191-e5l10i28neh0ovo3vh9pus4rb2irtgg2</string>
+				<string>mybiometric</string>
 			</array>
 		</dict>
 	</array>
