@@ -74,5 +74,18 @@
 	<string>myBiometric requires location access to verify office GPS geofence attendance.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>myBiometric requires photo library access to upload employee profile pictures.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.774828276191-e5l10i28neh0ovo3vh9pus4rb2irtgg2</string>
+			</array>
+		</dict>
+	</array>
+	<key>GIDClientID</key>
+	<string>774828276191-e5l10i28neh0ovo3vh9pus4rb2irtgg2.apps.googleusercontent.com</string>
 </dict>
 </plist>

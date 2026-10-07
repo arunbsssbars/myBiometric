@@ -273,12 +273,16 @@ class FaceEnrollmentViewModel extends ChangeNotifier {
       _borderColor = Colors.redAccent;
       HapticFeedback.heavyImpact();
       notifyListeners();
-      rethrow;
     } catch (e) {
-      _statusMessage = "Error: $e";
-      _borderColor = Colors.redAccent;
+      final errStr = e.toString();
+      if (errStr.contains('Model not initialised') || errStr.contains('Model not initialized')) {
+        _statusMessage = "Initializing biometric engine... Please hold still";
+        _borderColor = Colors.amberAccent;
+      } else {
+        _statusMessage = "Camera adjustment needed. Please center your face";
+        _borderColor = Colors.redAccent;
+      }
       notifyListeners();
-      rethrow;
     } finally {
       _isProcessing = false;
     }

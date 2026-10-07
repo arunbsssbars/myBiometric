@@ -68,8 +68,13 @@ class AuthService {
         throw const AuthNetworkException(
           'No internet connection. Please check your network connection and try again.',
         );
-      } else if (e.code == 'sign_in_canceled' || e.code == '12501') {
-        return null; // User cancelled
+      } else if (e.code == 'sign_in_canceled' || 
+                 e.code == '12501' || 
+                 e.code == '-5' || 
+                 errorString.contains('canceled') || 
+                 errorString.contains('cancelled') ||
+                 errorString.contains('gidsignin')) {
+        return null; // User cancelled flow or dismissed Safari sheet cleanly
       } else if (e.code == '10' || e.toString().contains('ApiException: 10')) {
         throw const AuthException(
           'Google Sign-In configuration error (missing SHA-1 in Firebase Console).',
