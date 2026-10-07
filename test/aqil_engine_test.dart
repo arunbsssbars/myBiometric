@@ -667,15 +667,15 @@ void main() {
     testWidgets('auditGestureConflicts checks component edge margin for OS navigation swipe conflicts',
         (WidgetTester tester) async {
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: Padding(
-              padding: const EdgeInsets.only(left: 32.0),
+              padding: EdgeInsets.only(left: 32.0),
               child: SizedBox(
-                key: const ValueKey('safe_card'),
+                key: ValueKey('safe_card'),
                 width: 200,
                 height: 100,
-                child: const Card(child: Text('Safe Carousel Card')),
+                child: Card(child: Text('Safe Carousel Card')),
               ),
             ),
           ),
@@ -848,12 +848,12 @@ void main() {
     testWidgets('auditOfflineSyncIndicator detects presence of offline sync badge or chip',
         (WidgetTester tester) async {
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: Center(
               child: Chip(
-                avatar: const Icon(Icons.cloud_off, size: 16),
-                label: const Text('3 Pending Sync'),
+                avatar: Icon(Icons.cloud_off, size: 16),
+                label: Text('3 Pending Sync'),
               ),
             ),
           ),
@@ -1363,7 +1363,7 @@ Widget build(BuildContext context) {
           violations: ['Tap target 36x36dp smaller than min standard 48x48dp'],
         );
 
-        final patch = RemediationPatch(
+        const patch = RemediationPatch(
           rule: RemediationRule.minTouchTargetPadding,
           description: 'Enforce minimum accessible touch target size (≥ 48dp)',
           originalSnippet: 'IconButton(icon: Icon(Icons.close), onPressed: () {})',
@@ -1426,22 +1426,22 @@ Widget build(BuildContext context) {
 
     group('Frontier 5: AqilChaosMonkey Interactive Chaos & State-Machine Fuzzing', () {
       test('ChaosMonkeyReport properties and reproduction script format accurately', () {
-        final report = ChaosMonkeyReport(
+        const report = ChaosMonkeyReport(
           seed: 999,
           totalActionsAttempted: 10,
           successfulActions: 10,
           hasCrashes: false,
-          capturedExceptions: const [],
+          capturedExceptions: [],
           eventLog: [
             MonkeyEvent(
               step: 1,
               type: MonkeyActionType.tap,
               targetDescription: 'Submit Button',
               details: 'Single tap executed',
-              timestamp: const Duration(milliseconds: 15),
+              timestamp: Duration(milliseconds: 15),
             ),
           ],
-          duration: const Duration(milliseconds: 150),
+          duration: Duration(milliseconds: 150),
         );
 
         expect(report.isResilient, isTrue);
@@ -1460,8 +1460,8 @@ Widget build(BuildContext context) {
               body: ListView(
                 children: [
                   const Text('Form Title', overflow: TextOverflow.ellipsis),
-                  TextField(
-                    decoration: const InputDecoration(labelText: 'Username'),
+                  const TextField(
+                    decoration: InputDecoration(labelText: 'Username'),
                   ),
                   FilledButton(
                     onPressed: () {
@@ -1687,15 +1687,15 @@ The relevant error-causing widget was:
       testWidgets('auditRepaintIsolation detects direct and missing RepaintBoundaries',
           (WidgetTester tester) async {
         await tester.pumpWidget(
-          MaterialApp(
+          const MaterialApp(
             home: Scaffold(
               body: Column(
                 children: [
                   RepaintBoundary(
-                    key: const ValueKey('isolated_widget'),
-                    child: const Text('Isolated', overflow: TextOverflow.ellipsis),
+                    key: ValueKey('isolated_widget'),
+                    child: Text('Isolated', overflow: TextOverflow.ellipsis),
                   ),
-                  const Text('Non-isolated', key: ValueKey('unisolated_widget')),
+                  Text('Non-isolated', key: ValueKey('unisolated_widget')),
                 ],
               ),
             ),
@@ -1877,7 +1877,7 @@ The relevant error-causing widget was:
       testWidgets('auditBidiIconMirroring detects directional vs non-directional navigation icons',
           (WidgetTester tester) async {
         await tester.pumpWidget(
-          MaterialApp(
+          const MaterialApp(
             home: Scaffold(
               body: Row(
                 children: [
@@ -2066,27 +2066,27 @@ The relevant error-causing widget was:
       testWidgets('auditSpatialTension confirms high harmony on 8pt grid compliant layouts',
           (WidgetTester tester) async {
         await tester.pumpWidget(
-          MaterialApp(
+          const MaterialApp(
             home: Scaffold(
               body: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Harmonious Heading',
                       style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 8.0),
-                    const Text(
+                    SizedBox(height: 8.0),
+                    Text(
                       'Balanced body copy text with clean typography contrast.',
                       style: TextStyle(fontSize: 14),
                     ),
-                    const SizedBox(height: 16.0),
+                    SizedBox(height: 16.0),
                     Card(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                        child: const Text('Card Content', style: TextStyle(fontSize: 14)),
+                        padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                        child: Text('Card Content', style: TextStyle(fontSize: 14)),
                       ),
                     ),
                   ],
@@ -2109,24 +2109,24 @@ The relevant error-causing widget was:
       testWidgets('auditSpatialTension flags asymmetric padding, cramped borders, and muddy typography',
           (WidgetTester tester) async {
         await tester.pumpWidget(
-          MaterialApp(
+          const MaterialApp(
             home: Scaffold(
               body: Column(
                 children: [
                   // Asymmetric horizontal padding: left 24 vs right 4 (20dp skew)
                   Padding(
-                    padding: const EdgeInsets.only(left: 24.0, right: 4.0),
-                    child: const Text('Asymmetric content', style: TextStyle(fontSize: 16)),
+                    padding: EdgeInsets.only(left: 24.0, right: 4.0),
+                    child: Text('Asymmetric content', style: TextStyle(fontSize: 16)),
                   ),
                   // Muddy typography step: 16sp vs 15sp (1.06x ratio)
-                  const Text('Subtitle nearly same as body', style: TextStyle(fontSize: 15)),
+                  Text('Subtitle nearly same as body', style: TextStyle(fontSize: 15)),
                   // Cramped sub-4dp padding
                   Padding(
-                    padding: const EdgeInsets.all(2.0),
-                    child: const Text('Cramped', style: TextStyle(fontSize: 12)),
+                    padding: EdgeInsets.all(2.0),
+                    child: Text('Cramped', style: TextStyle(fontSize: 12)),
                   ),
                   // Excessive dead void space (> 80dp)
-                  const SizedBox(height: 100.0),
+                  SizedBox(height: 100.0),
                 ],
               ),
             ),
@@ -2562,10 +2562,10 @@ class UserDetailScreen extends StatefulWidget {
           (WidgetTester tester) async {
         final report = await UiQualityTester.auditAntiSpoofResilience(
           tester,
-          builder: (context, attack) => Column(
+          builder: (context, attack) => const Column(
             children: [
-              const Text('Biometric Verification Failed: spoof attack rejected.'),
-              const Text('Enter Supervisor PIN to override.'),
+              Text('Biometric Verification Failed: spoof attack rejected.'),
+              Text('Enter Supervisor PIN to override.'),
             ],
           ),
           vectors: const [BiometricSpoofType.printedPhoto2D, BiometricSpoofType.digitalScreenReplay],

@@ -3571,6 +3571,8 @@ class _EnterpriseAdminDashboardScreenState
                   : () async {
                       setModalState(() => isSubmitting = true);
                       final messenger = ScaffoldMessenger.of(context);
+                      final successColor = context.status.success.color;
+                      final dangerColor = context.status.danger.color;
                       try {
                         await _dbService.updateEmployeeProfile(
                           userId: empDoc.id,
@@ -3584,13 +3586,13 @@ class _EnterpriseAdminDashboardScreenState
                         messenger.showSnackBar(
                           SnackBar(
                             content: const Text('Employee profile updated successfully!'),
-                            backgroundColor: context.status.success.color,
+                            backgroundColor: successColor,
                           ),
                         );
                       } catch (e) {
                         setModalState(() => isSubmitting = false);
                         messenger.showSnackBar(
-                          SnackBar(content: Text('Error updating profile: $e'), backgroundColor: context.status.danger.color),
+                          SnackBar(content: Text('Error updating profile: $e'), backgroundColor: dangerColor),
                         );
                       }
                     },
@@ -3796,6 +3798,8 @@ class _EnterpriseAdminDashboardScreenState
                     ? null
                     : () async {
                         final messenger = ScaffoldMessenger.of(context);
+                        final successColor = context.status.success.color;
+                        final dangerColor = context.status.danger.color;
                         final hasNet = await NetworkConnectionService.checkConnectionAndNotify(context);
                         if (!hasNet) return;
 
@@ -3831,13 +3835,13 @@ class _EnterpriseAdminDashboardScreenState
                           messenger.showSnackBar(
                             SnackBar(
                               content: Text('Manual $punchType recorded for $name.'),
-                              backgroundColor: context.status.success.color,
+                              backgroundColor: successColor,
                             ),
                           );
                         } catch (e) {
                           setModalState(() => isSubmitting = false);
                           messenger.showSnackBar(
-                            SnackBar(content: Text('Error recording punch: $e'), backgroundColor: context.status.danger.color),
+                            SnackBar(content: Text('Error recording punch: $e'), backgroundColor: dangerColor),
                           );
                         }
                       },

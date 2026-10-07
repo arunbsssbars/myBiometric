@@ -166,7 +166,7 @@ class _RegisterFaceScreenState extends State<RegisterFaceScreen> {
         });
       }
     } catch (e, stack) {
-      print("Error registering face: $e\n$stack");
+      debugPrint("Error registering face: $e\n$stack");
     } finally {
       if (mounted) _isProcessing = false;
     }

@@ -275,7 +275,7 @@ class _ExternalTerminalManagementScreenState extends State<ExternalTerminalManag
                         autoSyncEnabled: autoSync,
                       );
                     }
-                    if (mounted) Navigator.pop(ctx);
+                    if (ctx.mounted) Navigator.pop(ctx);
                   }
                 },
                 child: Text(isEditing ? 'Save Changes' : 'Register Terminal'),

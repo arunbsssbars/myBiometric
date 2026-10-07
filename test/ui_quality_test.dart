@@ -246,14 +246,14 @@ void main() {
               body: SingleChildScrollView(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 child: Builder(
-                  builder: (context) => Column(
+                  builder: (context) => const Column(
                     children: [
                       SectionHeader(
                         icon: Icons.security_rounded,
                         title: 'Enterprise Security Policies',
                         subtitle: 'Biometric and geofence enforcement',
                       ),
-                      const SizedBox(height: AppSpacing.md),
+                      SizedBox(height: AppSpacing.md),
                       EmptyStateView(
                         icon: Icons.verified_user_rounded,
                         title: 'All Compliance Checks Passed',

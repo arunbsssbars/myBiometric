@@ -67,10 +67,10 @@ class _WifiSettingsScreenState extends State<WifiSettingsScreen> {
   }
 
   Future<void> _saveSettings() async {
-    final hasNet = await NetworkConnectionService.checkConnectionAndNotify(context);
-    if (!hasNet) return;
-
     final statusTheme = context.status;
+    final hasNet = await NetworkConnectionService.checkConnectionAndNotify(context);
+    if (!hasNet || !mounted) return;
+
     setState(() => _isSaving = true);
     try {
       await DatabaseService().updateEnterpriseWifi(

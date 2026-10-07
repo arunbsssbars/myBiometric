@@ -45,7 +45,7 @@ void main() {
   }
 
   // 2. iOS AppIcon set
-  final iosPath = 'ios/Runner/Assets.xcassets/AppIcon.appiconset';
+  const iosPath = 'ios/Runner/Assets.xcassets/AppIcon.appiconset';
   final iosIcons = {
     'Icon-App-20x20@1x.png': 20,
     'Icon-App-20x20@2x.png': 40,
