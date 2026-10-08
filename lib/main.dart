@@ -20,7 +20,18 @@ import 'views/profile_settings_screen.dart';
 import 'views/attendance_activity_screen.dart';
 import 'views/super_admin_console_screen.dart';
 import 'views/email_verification_screen.dart';
+import 'views/pending_approval_screen.dart';
 import 'presentation/widgets/universal_command_palette.dart';
+
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
+Future<void> performGlobalSignOut([BuildContext? context]) async {
+  await AuthService().signOut();
+  rootNavigatorKey.currentState?.pushAndRemoveUntil(
+    MaterialPageRoute(builder: (_) => const AuthWrapper()),
+    (route) => false,
+  );
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,6 +57,7 @@ class MyBiometricApp extends StatelessWidget {
       listenable: AppThemeNotifier.instance,
       builder: (context, _) {
         return MaterialApp(
+          navigatorKey: rootNavigatorKey,
           title: 'myBiometric',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
@@ -96,6 +108,7 @@ class _UserStateRouterState extends State<UserStateRouter> {
   bool _hasEnterprise = false;
   bool _hasError = false;
   bool _isSuperAdmin = false;
+  bool _isPendingApproval = false;
   String _enterpriseId = '';
   String _companyName = '';
 
@@ -253,9 +266,37 @@ class _UserStateRouterState extends State<UserStateRouter> {
           if (entDoc.exists) {
             final entData = entDoc.data() ?? {};
             final cName = entData['name'] ?? entData['companyName'] ?? entData['enterpriseName'] ?? eId;
+
+            // Check if employee registration is awaiting company administrator approval
+            final userData = doc.data() ?? {};
+            final approvalStatus = userData['approvalStatus']?.toString().toUpperCase();
+            final userStatus = userData['status']?.toString().toUpperCase();
+            final userRole = userData['role']?.toString();
+
+            final isEnterpriseAdminUser = isAuthorizedSuperAdmin ||
+                userRole == 'enterprise_admin' ||
+                userRole == 'admin' ||
+                (entData['adminUid'] == user.uid) ||
+                (entData['adminEmail'] == user.email);
+
+            if (!isEnterpriseAdminUser &&
+                (approvalStatus == 'PENDING_APPROVAL' || userStatus == 'PENDING_APPROVAL')) {
+              if (mounted) {
+                setState(() {
+                  _hasEnterprise = false;
+                  _isPendingApproval = true;
+                  _enterpriseId = eId!;
+                  _companyName = cName.toString();
+                  _isLoading = false;
+                });
+              }
+              return;
+            }
+
             if (mounted) {
               setState(() {
                 _hasEnterprise = true;
+                _isPendingApproval = false;
                 _enterpriseId = eId!;
                 _companyName = cName.toString();
                 _isLoading = false;
@@ -312,6 +353,20 @@ class _UserStateRouterState extends State<UserStateRouter> {
             ],
           ),
         ),
+      );
+    }
+    if (_isPendingApproval) {
+      return PendingApprovalScreen(
+        enterpriseId: _enterpriseId,
+        companyName: _companyName,
+        onApproved: () {
+          setState(() {
+            _isLoading = true;
+            _isPendingApproval = false;
+          });
+          _checkStatus();
+        },
+        onSignOut: () => performGlobalSignOut(context),
       );
     }
     if (_hasEnterprise) {
@@ -533,15 +588,49 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
 
       final user = AuthService().currentUser!;
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      final existingRole = userDoc.data()?['role'];
+      final displayName = user.displayName ?? userDoc.data()?['fullName'] ?? userDoc.data()?['name'] ?? user.email?.split('@').first ?? 'Employee';
 
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'email': user.email ?? '',
-        'role': _joinAsCoAdmin ? 'enterprise_admin' : (existingRole ?? 'employee'),
-        'enterpriseId': code,
-        'linkedEnterprises': FieldValue.arrayUnion([code]),
-        'createdAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      if (!_joinAsCoAdmin) {
+        // Regular employee self-joining requires administrator approval before registration is complete
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'email': user.email ?? '',
+          'fullName': displayName,
+          'role': 'employee',
+          'enterpriseId': code,
+          'approvalStatus': 'PENDING_APPROVAL',
+          'status': 'PENDING_APPROVAL',
+          'requestedEnterpriseId': code,
+          'requestedAt': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+        try {
+          await FirebaseFirestore.instance
+              .collection('enterprises')
+              .doc(code)
+              .collection('employees')
+              .doc(user.uid)
+              .set({
+            'fullName': displayName,
+            'email': user.email ?? '',
+            'role': 'employee',
+            'status': 'PENDING_APPROVAL',
+            'approvalStatus': 'PENDING_APPROVAL',
+            'biometricsEnrolled': false,
+            'requestedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        } catch (_) {}
+      } else {
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'email': user.email ?? '',
+          'role': 'enterprise_admin',
+          'enterpriseId': code,
+          'linkedEnterprises': FieldValue.arrayUnion([code]),
+          'approvalStatus': 'APPROVED',
+          'status': 'ACTIVE',
+          'createdAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
 
       widget.onJoined();
     } catch (e) {
@@ -683,10 +772,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
                   isDark ? ThemeMode.light : ThemeMode.dark,
                 );
               } else if (val == 'sign_out') {
-                await AuthService().signOut();
-                if (context.mounted) {
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                }
+                await performGlobalSignOut(context);
               }
             },
             itemBuilder: (ctx) => [
@@ -1722,7 +1808,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   isDark ? ThemeMode.light : ThemeMode.dark,
                 );
               } else if (val == 'logout') {
-                await AuthService().signOut();
+                await performGlobalSignOut(context);
               }
             },
             itemBuilder: (ctx) => [
@@ -1861,6 +1947,199 @@ class _HomeScreenState extends State<HomeScreen> {
                           const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFFFBBF24), size: 14),
                         ],
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                ],
+
+                // Enterprise Admin Workspace Quick Access Card
+                if (_isAdminOrHigher) ...[
+                  InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => EnterpriseAdminDashboardScreen(enterpriseId: enterpriseId),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFF334155)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF0F172A).withValues(alpha: 0.25),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2563EB).withValues(alpha: 0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF60A5FA), size: 24),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Text(
+                                          'Enterprise Admin Workspace',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: const Text('ADMIN', style: TextStyle(color: Color(0xFF34D399), fontSize: 10, fontWeight: FontWeight.bold)),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    const Text(
+                                      'Staff Roster, Approvals, Geofencing & MIS Reports',
+                                      style: TextStyle(color: Colors.white70, fontSize: 11),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF60A5FA), size: 14),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    side: const BorderSide(color: Color(0xFF475569)),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => EnterpriseAdminDashboardScreen(enterpriseId: enterpriseId),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.dashboard_rounded, size: 16, color: Color(0xFF60A5FA)),
+                                  label: const Text('Open Admin Console', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: FilledButton.icon(
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFF2563EB),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                  ),
+                                  onPressed: () => _openKioskMode(enterpriseId),
+                                  icon: const Icon(Icons.camera_front_rounded, size: 16),
+                                  label: const Text('Launch Kiosk', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                ] else ...[
+                  // Controlled Employee Workspace Header Banner
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: context.colors.surfaceContainerHighest.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: context.colors.outlineVariant),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.badge_outlined, color: Color(0xFF2563EB), size: 18),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Employee Workspace • $displayName',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: context.colors.onSurface,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                'Controlled Attendance & Leave Self-Service Portal',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: context.colors.onSurfaceVariant,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'STAFF',
+                            style: TextStyle(
+                              color: Color(0xFF059669),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 18),

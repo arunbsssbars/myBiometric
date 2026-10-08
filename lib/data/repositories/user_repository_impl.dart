@@ -109,6 +109,55 @@ class UserRepositoryImpl implements UserRepository {
     return _mapDocToProfile(doc);
   }
 
+  @override
+  Future<List<EmployeeProfile>> getAllEnrolledBiometricProfiles() async {
+    final Map<String, EmployeeProfile> profileMap = {};
+    try {
+      // 1. Query all users from global users collection
+      final enrolledUsers = await _firestore
+          .collection('users')
+          .where('biometricsEnrolled', isEqualTo: true)
+          .get();
+      for (final doc in enrolledUsers.docs) {
+        final profile = _mapDocToProfile(doc);
+        if (profile.facialSignature != null && profile.facialSignature!.isNotEmpty) {
+          profileMap[doc.id] = profile;
+        }
+      }
+    } catch (_) {}
+
+    try {
+      // 2. Query enterprise employee subcollections
+      final enrolledEmployees = await _firestore
+          .collectionGroup('employees')
+          .where('biometricsEnrolled', isEqualTo: true)
+          .get();
+      for (final doc in enrolledEmployees.docs) {
+        if (!profileMap.containsKey(doc.id)) {
+          final profile = _mapDocToProfile(doc);
+          if (profile.facialSignature != null && profile.facialSignature!.isNotEmpty) {
+            profileMap[doc.id] = profile;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 3. Robust fallback: scan recent users in case biometricsEnrolled flag was unset
+    if (profileMap.isEmpty) {
+      try {
+        final allUsers = await _firestore.collection('users').limit(250).get();
+        for (final doc in allUsers.docs) {
+          final profile = _mapDocToProfile(doc);
+          if (profile.facialSignature != null && profile.facialSignature!.isNotEmpty) {
+            profileMap[doc.id] = profile;
+          }
+        }
+      } catch (_) {}
+    }
+
+    return profileMap.values.toList();
+  }
+
   EmployeeProfile _mapDocToProfile(DocumentSnapshot doc) {
     final data = (doc.data() as Map<String, dynamic>?) ?? {};
     final rawSig = data['facialSignature'] ?? data['facialEmbedding'];

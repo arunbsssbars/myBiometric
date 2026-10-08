@@ -549,6 +549,23 @@ class _MobilePunchCardState extends State<MobilePunchCard> {
             final isClockedIn = isWorking || isOnBreak;
             final latestData = todayLogMaps.isNotEmpty ? todayLogMaps.first : null;
 
+            final userMethodsRaw = widget.userData?['allowedVerificationMethods'] as List<dynamic>?;
+            final entMethodsRaw = entData?['defaultAllowedVerificationMethods'] as List<dynamic>?;
+            final List<String> effectiveMethods = (userMethodsRaw != null && userMethodsRaw.isNotEmpty)
+                ? userMethodsRaw.map((e) => e.toString()).toList()
+                : (entMethodsRaw != null && entMethodsRaw.isNotEmpty)
+                    ? entMethodsRaw.map((e) => e.toString()).toList()
+                    : const ['MOBILE_GPS', 'KIOSK_FACE', 'PHONE_BIOMETRICS', 'OFFICE_WIFI', 'KIOSK_PIN'];
+
+            final bool isMobileGpsAllowed = effectiveMethods.contains('MOBILE_GPS');
+            final bool isTerminalAllowed = effectiveMethods.any((m) =>
+                m == 'TERMINAL_QR' ||
+                m == 'TERMINAL_NFC' ||
+                m == 'TERMINAL_BLE' ||
+                m == 'OFFICE_WIFI' ||
+                m == 'KIOSK_PIN' ||
+                m == 'KIOSK_FACE');
+
             Color themeBorder;
             Color cardBg;
 
@@ -889,77 +906,110 @@ class _MobilePunchCardState extends State<MobilePunchCard> {
                         ],
                       ),
                     ] else ...[
-                      // Big Clock In Button
-                      FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: status.success.onContainer,
-                          foregroundColor: status.success.container,
-                          minimumSize: const Size(AppSizes.minTouchTarget, AppSizes.minTouchTarget),
-                          shape: RoundedRectangleBorder(borderRadius: AppRadius.brMd),
-                        ),
-                        onPressed: _isPunching
-                            ? null
-                            : () => _handlePunch(
-                                  clockIn: true,
-                                  schedule: schedule,
-                                  latestPunch: latestData,
-                                  employeeName: name,
-                                  employeeId: empId,
-                                  userId: user.uid,
+                      if (isMobileGpsAllowed)
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: status.success.onContainer,
+                            foregroundColor: status.success.container,
+                            minimumSize: const Size(AppSizes.minTouchTarget, AppSizes.minTouchTarget),
+                            shape: RoundedRectangleBorder(borderRadius: AppRadius.brMd),
+                          ),
+                          onPressed: _isPunching
+                              ? null
+                              : () => _handlePunch(
+                                    clockIn: true,
+                                    schedule: schedule,
+                                    latestPunch: latestData,
+                                    employeeName: name,
+                                    employeeId: empId,
+                                    userId: user.uid,
+                                  ),
+                          icon: _isPunching
+                              ? SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: status.success.container),
+                                )
+                              : const Icon(Icons.login_rounded, size: AppSizes.iconMd),
+                          label: Text(
+                            _isPunching
+                                ? 'Recording...'
+                                : (session.status == EmployeeWorkStatus.clockedOut ? 'Clock In Again' : 'Clock In Now'),
+                            style: context.text.labelLarge?.copyWith(fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          decoration: BoxDecoration(
+                            color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
+                            borderRadius: AppRadius.brMd,
+                            border: Border.all(color: colors.outlineVariant),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.lock_clock_outlined, color: colors.onSurfaceVariant, size: 22),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Mobile GPS Clock-In Restricted',
+                                      style: context.text.labelLarge?.copyWith(fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Your enterprise administrator has restricted your attendance verification to authorized kiosk or office terminals.',
+                                      style: context.text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+                                    ),
+                                  ],
                                 ),
-                        icon: _isPunching
-                            ? SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: status.success.container),
-                              )
-                            : const Icon(Icons.login_rounded, size: AppSizes.iconMd),
-                        label: Text(
-                          _isPunching
-                              ? 'Recording...'
-                              : (session.status == EmployeeWorkStatus.clockedOut ? 'Clock In Again' : 'Clock In Now'),
-                          style: context.text.labelLarge?.copyWith(fontWeight: FontWeight.bold),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
                         ),
+                    ],
+                    if (isTerminalAllowed) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      // External Physical Terminal Punch Mode Hub
+                      ExpansionTile(
+                        shape: const Border(),
+                        collapsedShape: const Border(),
+                        tilePadding: EdgeInsets.zero,
+                        leading: Container(
+                          padding: const EdgeInsets.all(AppSpacing.xs),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: colors.primaryContainer.withValues(alpha: 0.5),
+                          ),
+                          child: Icon(Icons.devices_other_rounded, size: 20, color: colors.primary),
+                        ),
+                        title: Text(
+                          'External Terminal Punch Modes',
+                          style: context.text.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'QR, BLE, NFC, LAN Wi-Fi, or Keypad PIN',
+                          style: context.text.bodySmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                        children: [
+                          const SizedBox(height: AppSpacing.xs),
+                          MobileMachinePunchHubCard(
+                            employeeId: empId,
+                            enterpriseId: widget.enterpriseId,
+                            employeeName: name,
+                            userId: user.uid,
+                          ),
+                        ],
                       ),
                     ],
-                    const SizedBox(height: AppSpacing.md),
-                    // External Physical Terminal Punch Mode Hub
-                    ExpansionTile(
-                      shape: const Border(),
-                      collapsedShape: const Border(),
-                      tilePadding: EdgeInsets.zero,
-                      leading: Container(
-                        padding: const EdgeInsets.all(AppSpacing.xs),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: colors.primaryContainer.withValues(alpha: 0.5),
-                        ),
-                        child: Icon(Icons.devices_other_rounded, size: 20, color: colors.primary),
-                      ),
-                      title: Text(
-                        'External Terminal Punch Modes',
-                        style: context.text.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: Text(
-                        'QR, BLE, NFC, LAN Wi-Fi, or Keypad PIN',
-                        style: context.text.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                      children: [
-                        const SizedBox(height: AppSpacing.xs),
-                        MobileMachinePunchHubCard(
-                          employeeId: empId,
-                          enterpriseId: widget.enterpriseId,
-                          employeeName: name,
-                          userId: user.uid,
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),

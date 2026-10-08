@@ -23,6 +23,7 @@ import 'enterprise_policies_hub_screen.dart';
 import 'executive_command_center_screen.dart';
 import '../services/executive_command_center_service.dart';
 import '../presentation/widgets/universal_command_palette.dart';
+import '../main.dart';
 
 class EnterpriseAdminDashboardScreen extends StatefulWidget {
   final String enterpriseId;
@@ -464,10 +465,7 @@ class _EnterpriseAdminDashboardScreenState
                   ),
                 );
                 if (confirm == true) {
-                  await AuthService().signOut();
-                  if (context.mounted) {
-                    Navigator.of(context).popUntil((route) => route.isFirst);
-                  }
+                  await performGlobalSignOut();
                 }
               }
             },
@@ -582,7 +580,7 @@ class _EnterpriseAdminDashboardScreenState
                             _buildOverviewTab(staffDocs, logs),
                             _buildStaffRosterTab(staffDocs, logs),
                             _buildAttendanceLogsTab(staffDocs, logs),
-                            _buildApprovalsTab(),
+                            _buildApprovalsTab(staffDocs),
                           ],
                         ),
                       ),
@@ -1521,11 +1519,21 @@ class _EnterpriseAdminDashboardScreenState
   }
 
   Widget _buildStaffRosterTab(List<QueryDocumentSnapshot> staff, List<QueryDocumentSnapshot> logs) {
-    final totalStaff = staff.length;
-    final enrolledCount = staff.where((s) => (s.data() as Map<String, dynamic>)['biometricsEnrolled'] == true).length;
+    final pendingApprovalStaff = staff.where((s) {
+      final data = s.data() as Map<String, dynamic>;
+      return (data['approvalStatus'] == 'PENDING_APPROVAL' || data['status'] == 'PENDING_APPROVAL');
+    }).toList();
+
+    final approvedStaff = staff.where((s) {
+      final data = s.data() as Map<String, dynamic>;
+      return data['approvalStatus'] != 'PENDING_APPROVAL' && data['status'] != 'PENDING_APPROVAL';
+    }).toList();
+
+    final totalStaff = approvedStaff.length;
+    final enrolledCount = approvedStaff.where((s) => (s.data() as Map<String, dynamic>)['biometricsEnrolled'] == true).length;
     final pendingCount = totalStaff - enrolledCount;
 
-    final filteredStaff = staff.where((s) {
+    final filteredStaff = approvedStaff.where((s) {
       final data = s.data() as Map<String, dynamic>;
       final name = (data['fullName'] as String?)?.toLowerCase() ??
           (data['name'] as String?)?.toLowerCase() ??
@@ -1654,6 +1662,45 @@ class _EnterpriseAdminDashboardScreenState
           ),
         ),
         Divider(height: 1, color: context.colors.borderSubtle),
+
+        if (pendingApprovalStaff.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: context.status.warning.container.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(color: context.status.warning.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.person_add_alt_1_rounded, color: context.status.warning.color, size: 20),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        'Pending Join Approvals (${pendingApprovalStaff.length})',
+                        style: context.textStyles.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: context.status.warning.onContainer,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  'These employees self-joined using your company code. Review and approve to complete their registration.',
+                  style: context.textStyles.bodySmall?.copyWith(color: context.colors.textSecondary),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                ...pendingApprovalStaff.map((pDoc) => _buildPendingApprovalCard(pDoc)),
+              ],
+            ),
+          ),
 
         // Staff List
         Expanded(
@@ -2520,13 +2567,18 @@ class _EnterpriseAdminDashboardScreenState
     );
   }
 
-  Widget _buildApprovalsTab() {
+  Widget _buildApprovalsTab([List<QueryDocumentSnapshot> staff = const []]) {
     return StreamBuilder<List<QueryDocumentSnapshot>>(
       stream: _dbService.getEnterpriseApprovalRequests(widget.enterpriseId),
       builder: (context, regSnapshot) {
         return StreamBuilder<List<LeaveRequest>>(
           stream: _leaveService.getEnterpriseLeaveRequests(widget.enterpriseId),
           builder: (context, leaveSnapshot) {
+            final pendingJoinRequests = staff.where((s) {
+              final data = s.data() as Map<String, dynamic>;
+              return data['approvalStatus'] == 'PENDING_APPROVAL' || data['status'] == 'PENDING_APPROVAL';
+            }).toList();
+
             final allRegs = regSnapshot.data ?? [];
             final pendingRegs = allRegs.where((doc) {
               final data = doc.data() as Map<String, dynamic>;
@@ -2550,6 +2602,16 @@ class _EnterpriseAdminDashboardScreenState
                     visualDensity: VisualDensity.compact,
                   ),
                   segments: [
+                    ButtonSegment(
+                      value: 'JOIN_REQUESTS',
+                      label: Text(
+                        'Join Requests (${pendingJoinRequests.length})',
+                        style: context.textStyles.labelSmall?.copyWith(fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      icon: const Icon(Icons.person_add_rounded, size: 14),
+                    ),
                     ButtonSegment(
                       value: 'REGULARIZATION',
                       label: Text(
@@ -2576,7 +2638,51 @@ class _EnterpriseAdminDashboardScreenState
                 ),
                 const SizedBox(height: AppSpacing.md),
 
-                if (_approvalsSubTab == 'REGULARIZATION') ...[
+                if (_approvalsSubTab == 'JOIN_REQUESTS') ...[
+                  Row(
+                    children: [
+                      Icon(Icons.person_add_alt_1_rounded, color: context.status.warning.color, size: 20),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          'Pending Employee Join Requests (${pendingJoinRequests.length})',
+                          style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: context.colors.textPrimary),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  if (pendingJoinRequests.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      decoration: BoxDecoration(
+                        color: context.colors.surface,
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        border: Border.all(color: context.colors.borderSubtle),
+                      ),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(Icons.check_circle_outline, color: context.status.success.color, size: 36),
+                            const SizedBox(height: 8),
+                            Text(
+                              'All Staff Registrations Approved',
+                              style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'No pending applicants awaiting company administrator approval.',
+                              style: context.textStyles.bodySmall?.copyWith(color: context.colors.textSecondary),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    ...pendingJoinRequests.map((pDoc) => _buildPendingApprovalCard(pDoc)),
+                ] else if (_approvalsSubTab == 'REGULARIZATION') ...[
                   // Regularization Flow
                   Row(
                     children: [
@@ -3089,6 +3195,260 @@ class _EnterpriseAdminDashboardScreenState
             SnackBar(content: Text('Error rejecting request: $e'), backgroundColor: context.status.danger.color),
           );
         }
+      }
+    }
+  }
+
+  Widget _buildPendingApprovalCard(QueryDocumentSnapshot empDoc) {
+    final data = empDoc.data() as Map<String, dynamic>;
+    final name = (data['fullName'] as String?)?.trim() ??
+        (data['name'] as String?)?.trim() ??
+        (data['email'] as String?)?.split('@').first ??
+        'New Applicant';
+    final email = (data['email'] as String?) ?? 'No email';
+    final requestedAt = (data['requestedAt'] as Timestamp?)?.toDate() ??
+        (data['createdAt'] as Timestamp?)?.toDate();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: context.colors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: context.status.warning.border),
+        boxShadow: [
+          BoxShadow(
+            color: context.colors.shadow.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: context.status.warning.container,
+                child: Text(
+                  name.isNotEmpty ? name[0].toUpperCase() : 'A',
+                  style: context.textStyles.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: context.status.warning.onContainer,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      email,
+                      style: context.textStyles.bodySmall?.copyWith(color: context.colors.textSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: context.status.warning.container,
+                  borderRadius: BorderRadius.circular(AppRadius.xs),
+                ),
+                child: Text(
+                  'PENDING',
+                  style: context.textStyles.labelSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: context.status.warning.onContainer,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (requestedAt != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Applied: ${requestedAt.day}/${requestedAt.month}/${requestedAt.year} at ${requestedAt.hour.toString().padLeft(2, '0')}:${requestedAt.minute.toString().padLeft(2, '0')}',
+              style: context.textStyles.bodySmall?.copyWith(fontSize: 11, color: context.colors.textSecondary),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: context.status.danger.color,
+                  side: BorderSide(color: context.status.danger.border),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
+                ),
+                onPressed: () => _rejectPendingEmployee(empDoc),
+                icon: const Icon(Icons.close_rounded, size: 16),
+                label: const Text('Reject'),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: context.status.success.color,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
+                ),
+                onPressed: () => _approvePendingEmployee(empDoc),
+                icon: const Icon(Icons.check_rounded, size: 16),
+                label: const Text('Approve & Add to Roster'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _approvePendingEmployee(QueryDocumentSnapshot empDoc) async {
+    final data = empDoc.data() as Map<String, dynamic>;
+    final name = (data['fullName'] as String?)?.trim() ?? (data['name'] as String?)?.trim() ?? 'Employee';
+    final existingId = (data['employeeId'] as String?)?.trim();
+    final empId = (existingId != null && existingId.isNotEmpty) ? existingId : 'EMP-${empDoc.id.length >= 5 ? empDoc.id.substring(0, 5).toUpperCase() : empDoc.id.toUpperCase()}';
+    final currentAdmin = AuthService().currentUser;
+
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(empDoc.id).set({
+        'approvalStatus': 'APPROVED',
+        'status': 'ACTIVE',
+        'employeeId': empId,
+        'allowedVerificationMethods': ['MOBILE_GPS', 'KIOSK_FACE', 'PHONE_BIOMETRICS'],
+        'approvedAt': FieldValue.serverTimestamp(),
+        'approvedBy': currentAdmin?.uid ?? '',
+        'linkedEnterprises': FieldValue.arrayUnion([widget.enterpriseId]),
+      }, SetOptions(merge: true));
+
+      try {
+        await FirebaseFirestore.instance
+            .collection('enterprises')
+            .doc(widget.enterpriseId)
+            .collection('employees')
+            .doc(empDoc.id)
+            .set({
+          'approvalStatus': 'APPROVED',
+          'status': 'ACTIVE',
+          'employeeId': empId,
+          'approvedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } catch (_) {}
+
+      AuditLogService().logAction(
+        enterpriseId: widget.enterpriseId,
+        action: 'STAFF_JOIN_APPROVED',
+        category: AuditLogService.categoryStaff,
+        targetEmployeeId: empId,
+        targetEmployeeName: name,
+        details: 'Administrator approved company join application for $name ($empId).',
+      );
+
+      try {
+        await FirebaseFirestore.instance.collection('notifications').add({
+          'target': 'USER',
+          'userId': empDoc.id,
+          'enterpriseId': widget.enterpriseId,
+          'title': 'Join Request Approved!',
+          'body': 'Your request to join $_companyName has been approved. You now have full access to company attendance.',
+          'type': 'REGULARIZATION_APPROVED',
+          'read': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      } catch (_) {}
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Approved $name! Registration completed with $_companyName.'),
+            backgroundColor: context.status.success.color,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to approve employee: $e'), backgroundColor: context.status.danger.color),
+        );
+      }
+    }
+  }
+
+  Future<void> _rejectPendingEmployee(QueryDocumentSnapshot empDoc) async {
+    final data = empDoc.data() as Map<String, dynamic>;
+    final name = (data['fullName'] as String?)?.trim() ?? (data['name'] as String?)?.trim() ?? 'Employee';
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+        title: const Text('Reject Join Request?'),
+        content: Text('Are you sure you want to reject $name? Their join request will be removed from your company workspace.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: context.status.danger.color),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Reject Application'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(empDoc.id).set({
+        'approvalStatus': 'REJECTED',
+        'status': 'UNASSIGNED',
+        'enterpriseId': FieldValue.delete(),
+        'rejectedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      try {
+        await FirebaseFirestore.instance
+            .collection('enterprises')
+            .doc(widget.enterpriseId)
+            .collection('employees')
+            .doc(empDoc.id)
+            .delete();
+      } catch (_) {}
+
+      AuditLogService().logAction(
+        enterpriseId: widget.enterpriseId,
+        action: 'STAFF_JOIN_REJECTED',
+        category: AuditLogService.categoryStaff,
+        targetEmployeeName: name,
+        details: 'Administrator rejected company join application for $name.',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Rejected join request for $name.'),
+            backgroundColor: context.status.warning.color,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to reject request: $e'), backgroundColor: context.status.danger.color),
+        );
       }
     }
   }

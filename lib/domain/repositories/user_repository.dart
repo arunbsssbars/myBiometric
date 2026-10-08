@@ -18,4 +18,7 @@ abstract class UserRepository {
 
   /// Fetches a specific employee profile.
   Future<EmployeeProfile?> getUserProfile(String userId);
+
+  /// Fetches all enrolled biometric profiles across the entire platform for global deduplication.
+  Future<List<EmployeeProfile>> getAllEnrolledBiometricProfiles();
 }

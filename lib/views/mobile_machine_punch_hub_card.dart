@@ -215,8 +215,11 @@ class _MobileMachinePunchHubCardState extends State<MobileMachinePunchHubCard> {
           ),
         ],
         const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
           children: [
             TextButton.icon(
               icon: const Icon(Icons.radar_rounded, size: 16),
@@ -249,7 +252,10 @@ class _MobileMachinePunchHubCardState extends State<MobileMachinePunchHubCard> {
                 );
               },
             ),
-            const Text(' • '),
+            Text(
+              '•',
+              style: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+            ),
             TextButton.icon(
               icon: const Icon(Icons.lock_person_rounded, size: 16),
               label: const Text('Test Machine Trust'),

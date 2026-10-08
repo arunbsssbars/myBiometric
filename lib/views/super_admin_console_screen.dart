@@ -21,10 +21,46 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  String _adminName = 'Super Admin';
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _loadAdminName();
+  }
+
+  Future<void> _loadAdminName() async {
+    final user = AuthService().currentUser;
+    if (user != null) {
+      final email = user.email?.trim().toLowerCase();
+      if (email == 'arunbsssbars@gmail.com') {
+        if (mounted) setState(() => _adminName = 'Arun (Developer)');
+        return;
+      }
+      if (user.displayName != null && user.displayName!.trim().isNotEmpty) {
+        if (mounted) setState(() => _adminName = user.displayName!.trim());
+      }
+      try {
+        if (email != null) {
+          final saDoc = await FirebaseFirestore.instance.collection('super_admins').doc(email).get();
+          if (saDoc.exists && saDoc.data()?['name'] != null) {
+            final n = saDoc.data()!['name'].toString().trim();
+            if (n.isNotEmpty && mounted) {
+              setState(() => _adminName = n);
+              return;
+            }
+          }
+        }
+        final uDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (uDoc.exists) {
+          final n = (uDoc.data()?['name'] ?? uDoc.data()?['fullName'])?.toString().trim();
+          if (n != null && n.isNotEmpty && mounted) {
+            setState(() => _adminName = n);
+          }
+        }
+      } catch (_) {}
+    }
   }
 
   @override
@@ -76,16 +112,19 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     radius: 12,
-                    backgroundColor: Color(0xFFFBBF24),
-                    child: Text('A', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+                    backgroundColor: const Color(0xFFFBBF24),
+                    child: Text(
+                      _adminName.isNotEmpty ? _adminName[0].toUpperCase() : 'A',
+                      style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
                   ),
                   const SizedBox(width: 6),
                   ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 140),
+                    constraints: const BoxConstraints(maxWidth: 160),
                     child: Text(
-                      AuthService().currentUser?.email ?? 'Super Admin',
+                      _adminName,
                       style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -97,7 +136,10 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh Console',
-            onPressed: () => setState(() {}),
+            onPressed: () {
+              _loadAdminName();
+              setState(() {});
+            },
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
@@ -146,6 +188,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
           unselectedLabelColor: Colors.white70,
           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           isScrollable: true,
+          tabAlignment: TabAlignment.start,
           tabs: const [
             Tab(icon: Icon(Icons.business_rounded, size: 20), text: 'Enterprises'),
             Tab(icon: Icon(Icons.people_alt_rounded, size: 20), text: 'Global Users'),
@@ -199,7 +242,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                     children: [
                       TextSpan(
-                        text: AuthService().currentUser?.email ?? 'arunbsssbars@gmail.com',
+                        text: '$_adminName (${AuthService().currentUser?.email ?? 'Root'})',
                         style: const TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.bold),
                       ),
                       const TextSpan(
@@ -1486,10 +1529,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
           FilledButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await AuthService().signOut();
-              if (context.mounted) {
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              }
+              await performGlobalSignOut(context);
             },
             child: const Text('Sign Out'),
           ),

@@ -75,6 +75,11 @@ class MockUserRepository implements UserRepository {
   Future<EmployeeProfile?> getUserProfile(String userId) async {
     return existingEmployees.where((e) => e.uid == userId).firstOrNull;
   }
+
+  @override
+  Future<List<EmployeeProfile>> getAllEnrolledBiometricProfiles() async {
+    return existingEmployees.where((e) => e.facialSignature != null && e.facialSignature!.isNotEmpty).toList();
+  }
 }
 
 class MockAttendanceRepository implements AttendanceRepository {

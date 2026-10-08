@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../core/design_system/design_system.dart';
+import '../main.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
   const EmailVerificationScreen({super.key});
@@ -250,7 +251,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> with 
                   ),
                   const SizedBox(height: 20),
                   TextButton(
-                    onPressed: () => AuthService().signOut(),
+                    onPressed: () => performGlobalSignOut(context),
                     child: const Text(
                       'Sign Out / Use a different account',
                       style: TextStyle(color: Color(0xFFEF4444), fontSize: 14),

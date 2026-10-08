@@ -61,12 +61,22 @@ class EnrollFaceUseCase {
       }
     }
 
-    if (effectiveEnterpriseId.isNotEmpty && !allowAdminAuthorizedOverwrite) {
-      final candidates = await _userRepository.getEnterpriseEmployeesList(effectiveEnterpriseId);
-      for (final candidate in candidates) {
-        // Exclude the current user themselves (by UID or matching employeeId)
-        if (candidate.uid == userId ||
-            (candidate.employeeId.isNotEmpty && candidate.employeeId.toLowerCase() == employeeId.toLowerCase())) {
+    // 2. 1:N Global Biometric Deduplication Collision Check across ALL tenants & users
+    if (!allowAdminAuthorizedOverwrite) {
+      final candidates = await _userRepository.getAllEnrolledBiometricProfiles();
+      final effectiveCandidates = candidates.isNotEmpty
+          ? candidates
+          : (effectiveEnterpriseId.isNotEmpty
+              ? await _userRepository.getEnterpriseEmployeesList(effectiveEnterpriseId)
+              : <EmployeeProfile>[]);
+
+      for (final candidate in effectiveCandidates) {
+        // Exclude the current user themselves (by UID or matching employeeId within same enterprise)
+        if (candidate.uid == userId) continue;
+        if (employeeId.isNotEmpty &&
+            candidate.employeeId.isNotEmpty &&
+            candidate.employeeId.toLowerCase() == employeeId.toLowerCase() &&
+            candidate.enterpriseId.toLowerCase() == enterpriseId.toLowerCase()) {
           continue;
         }
 
