@@ -115,15 +115,19 @@ class _UserStateRouterState extends State<UserStateRouter> {
         if (isSuperAdminEmail) {
           _isSuperAdmin = true;
           try {
+            final adminName = (user.displayName != null && user.displayName!.trim().isNotEmpty)
+                ? user.displayName!.trim()
+                : 'Arun (Root Super Admin)';
             await FirebaseFirestore.instance.collection('super_admins').doc(user.uid).set({
               'email': user.email,
+              'name': adminName,
               'role': 'super_admin',
               'assignedAt': FieldValue.serverTimestamp(),
             }, SetOptions(merge: true));
             await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
               'email': user.email,
               'role': 'super_admin',
-              'name': user.displayName ?? 'Arun (Super Admin)',
+              'name': adminName,
             }, SetOptions(merge: true));
           } catch (e) {
             debugPrint("Error auto-assigning super_admin: $e");

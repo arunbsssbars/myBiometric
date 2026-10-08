@@ -623,7 +623,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                             IconButton(
                               icon: const Icon(Icons.edit_outlined, size: 18),
                               tooltip: 'Modify Role',
-                              onPressed: () => _changeUserRole(doc.id, role, email),
+                              onPressed: () => _changeUserRole(doc.id, role, email, userName: name),
                             ),
                           ],
                         ),
@@ -679,20 +679,40 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
               }
 
               final docs = snapshot.data?.docs ?? [];
+              String rootName = 'Arun (Root Super Admin)';
+              for (final d in docs) {
+                final m = d.data() as Map<String, dynamic>? ?? {};
+                final email = (m['email'] ?? d.id).toString().toLowerCase();
+                if (email == 'arunbsssbars@gmail.com') {
+                  final n = m['name'] ?? m['fullName'];
+                  if (n != null && n.toString().trim().isNotEmpty) {
+                    rootName = n.toString().trim();
+                  }
+                  break;
+                }
+              }
+
               final allSuperAdmins = [
                 {
                   'id': 'arunbsssbars@gmail.com',
+                  'name': rootName,
                   'email': 'arunbsssbars@gmail.com',
                   'isRoot': true,
                 },
                 ...docs.map((d) {
                   final m = d.data() as Map<String, dynamic>? ?? {};
+                  final email = (m['email'] ?? d.id).toString();
+                  final rawName = m['name'] ?? m['fullName'];
+                  final name = (rawName != null && rawName.toString().trim().isNotEmpty)
+                      ? rawName.toString().trim()
+                      : (email.contains('@') ? email.split('@').first : email);
                   return {
                     'id': d.id,
-                    'email': (m['email'] ?? d.id).toString(),
+                    'name': name,
+                    'email': email,
                     'isRoot': false,
                   };
-                }).where((a) => a['email'] != 'arunbsssbars@gmail.com'),
+                }).where((a) => (a['email'] as String).toLowerCase() != 'arunbsssbars@gmail.com'),
               ];
 
               return Center(
@@ -703,6 +723,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                     itemCount: allSuperAdmins.length,
                     itemBuilder: (context, index) {
                       final item = allSuperAdmins[index];
+                      final name = item['name'] as String;
                       final email = item['email'] as String;
                       final isRoot = item['isRoot'] as bool;
 
@@ -715,9 +736,9 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                             backgroundColor: Color(0xFFFEF3C7),
                             child: Icon(Icons.shield_rounded, color: Color(0xFFD97706)),
                           ),
-                          title: Text(email, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Text(
-                            isRoot ? 'Root Platform Owner' : 'Super Administrator',
+                            '$email • ${isRoot ? 'Root Platform Owner' : 'Super Administrator'}',
                             style: const TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                           trailing: isRoot
@@ -1201,6 +1222,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
   }
 
   void _showAddSuperAdminDialog() {
+    final nameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     bool isSaving = false;
 
@@ -1210,13 +1232,29 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
         builder: (ctx, setDlgState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Add Platform Super Admin', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: TextField(
-            controller: emailCtrl,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Super Admin Email *',
-              hintText: 'admin@domain.com',
-            ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Super Admin Name *',
+                  hintText: 'John Doe',
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Super Admin Email *',
+                  hintText: 'admin@domain.com',
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
+              ),
+            ],
           ),
           actions: [
             TextButton(
@@ -1227,7 +1265,14 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
               onPressed: isSaving
                   ? null
                   : () async {
+                      final name = nameCtrl.text.trim();
                       final email = emailCtrl.text.trim().toLowerCase();
+                      if (name.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please enter a super admin name')),
+                        );
+                        return;
+                      }
                       if (email.isEmpty || !email.contains('@')) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Please enter a valid email')),
@@ -1237,17 +1282,34 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                       setDlgState(() => isSaving = true);
                       try {
                         await FirebaseFirestore.instance.collection('super_admins').doc(email).set({
+                          'name': name,
                           'email': email,
                           'role': 'super_admin',
                           'grantedAt': FieldValue.serverTimestamp(),
                           'grantedBy': AuthService().currentUser?.email ?? 'Root',
-                        });
+                        }, SetOptions(merge: true));
+
+                        // Also update users collection if a user document exists with this email
+                        final userQuery = await FirebaseFirestore.instance
+                            .collection('users')
+                            .where('email', isEqualTo: email)
+                            .limit(1)
+                            .get();
+                        if (userQuery.docs.isNotEmpty) {
+                          await userQuery.docs.first.reference.update({
+                            'name': name,
+                            'fullName': name,
+                            'role': 'super_admin',
+                            'roleUpdatedAt': FieldValue.serverTimestamp(),
+                          });
+                        }
+
                         if (ctx.mounted) {
                           Navigator.pop(ctx);
                         }
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Super Admin rights granted to $email')),
+                            SnackBar(content: Text('Super Admin rights granted to $name ($email)')),
                           );
                         }
                       } catch (e) {
@@ -1493,7 +1555,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
     );
   }
 
-  void _changeUserRole(String userId, String currentRole, String userEmail) {
+  void _changeUserRole(String userId, String currentRole, String userEmail, {String? userName}) {
     String selectedRole = currentRole;
     showDialog(
       context: context,
@@ -1536,7 +1598,11 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                   });
                   // If granted super_admin, also mirror to super_admins collection
                   if (selectedRole == 'super_admin') {
+                    final adminName = (userName != null && userName.trim().isNotEmpty)
+                        ? userName.trim()
+                        : (userEmail.contains('@') ? userEmail.split('@').first : userEmail);
                     await FirebaseFirestore.instance.collection('super_admins').doc(userId).set({
+                      'name': adminName,
                       'email': userEmail,
                       'role': 'super_admin',
                       'grantedAt': FieldValue.serverTimestamp(),
