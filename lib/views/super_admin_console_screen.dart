@@ -643,8 +643,32 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
   // TAB 3: PLATFORM SUPER ADMINS
   // ---------------------------------------------------------------------------
   Widget _buildSuperAdminsTab() {
+    final isDeveloper = AuthService().currentUser?.email?.trim().toLowerCase() == 'arunbsssbars@gmail.com';
     return Column(
       children: [
+        Container(
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEF3C7),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFFDE68A)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.shield_rounded, size: 20, color: Color(0xFFD97706)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  isDeveloper
+                      ? 'Developer Control Active: You are the Platform Developer with exclusive authority to provision and revoke Super Administrators.'
+                      : 'Authorized Super Administrator: Provisioned by the Platform Developer. Super Admin provisioning is strictly restricted to the Developer.',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF92400E), fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.all(16.0),
           child: Row(
@@ -655,11 +679,31 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
-              FilledButton.icon(
-                icon: const Icon(Icons.person_add_rounded, size: 18),
-                label: const Text('Add Super Admin'),
-                onPressed: _showAddSuperAdminDialog,
-              ),
+              if (isDeveloper)
+                FilledButton.icon(
+                  icon: const Icon(Icons.person_add_rounded, size: 18),
+                  label: const Text('Add Super Admin'),
+                  onPressed: _showAddSuperAdminDialog,
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.blueGrey.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.lock_outline, size: 14, color: Colors.blueGrey),
+                      SizedBox(width: 4),
+                      Text(
+                        'Developer Managed',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
@@ -738,7 +782,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                           ),
                           title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Text(
-                            '$email • ${isRoot ? 'Root Platform Owner' : 'Super Administrator'}',
+                            '$email • ${isRoot ? 'Platform Developer' : 'Authorized Super Admin'}',
                             style: const TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                           trailing: isRoot
@@ -749,7 +793,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: const Text(
-                                    'PRIMARY',
+                                    'DEVELOPER',
                                     style: TextStyle(
                                       color: Color(0xFFB45309),
                                       fontWeight: FontWeight.bold,
@@ -757,11 +801,27 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                                     ),
                                   ),
                                 )
-                              : IconButton(
-                                  icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
-                                  tooltip: 'Revoke Super Admin',
-                                  onPressed: () => _revokeSuperAdmin(item['id'] as String, email),
-                                ),
+                              : isDeveloper
+                                  ? IconButton(
+                                      icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
+                                      tooltip: 'Revoke Super Admin',
+                                      onPressed: () => _revokeSuperAdmin(item['id'] as String, email),
+                                    )
+                                  : Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Text(
+                                        'AUTHORIZED',
+                                        style: TextStyle(
+                                          color: Colors.green,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ),
                         ),
                       );
                     },
@@ -1222,6 +1282,16 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
   }
 
   void _showAddSuperAdminDialog() {
+    final isDeveloper = AuthService().currentUser?.email?.trim().toLowerCase() == 'arunbsssbars@gmail.com';
+    if (!isDeveloper) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Access Denied: Super Admin creation is strictly restricted to the platform developer.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
     final nameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     bool isSaving = false;
@@ -1364,6 +1434,16 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
   }
 
   void _revokeSuperAdmin(String docId, String email) {
+    final isDeveloper = AuthService().currentUser?.email?.trim().toLowerCase() == 'arunbsssbars@gmail.com';
+    if (!isDeveloper) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Access Denied: Only the platform developer can revoke Super Admin privileges.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1556,6 +1636,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
   }
 
   void _changeUserRole(String userId, String currentRole, String userEmail, {String? userName}) {
+    final isDeveloper = AuthService().currentUser?.email?.trim().toLowerCase() == 'arunbsssbars@gmail.com';
     String selectedRole = currentRole;
     showDialog(
       context: context,
@@ -1570,15 +1651,16 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
               Text('User: $userEmail', style: const TextStyle(fontSize: 13, color: Colors.grey)),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                initialValue: ['employee', 'manager', 'enterprise_admin', 'super_admin'].contains(selectedRole)
+                initialValue: ['employee', 'manager', 'enterprise_admin', if (isDeveloper) 'super_admin'].contains(selectedRole)
                     ? selectedRole
                     : 'employee',
                 decoration: const InputDecoration(labelText: 'Assigned Role'),
-                items: const [
-                  DropdownMenuItem(value: 'employee', child: Text('Employee')),
-                  DropdownMenuItem(value: 'manager', child: Text('Department Manager')),
-                  DropdownMenuItem(value: 'enterprise_admin', child: Text('Enterprise Admin')),
-                  DropdownMenuItem(value: 'super_admin', child: Text('Platform Super Admin')),
+                items: [
+                  const DropdownMenuItem(value: 'employee', child: Text('Employee')),
+                  const DropdownMenuItem(value: 'manager', child: Text('Department Manager')),
+                  const DropdownMenuItem(value: 'enterprise_admin', child: Text('Enterprise Admin')),
+                  if (isDeveloper)
+                    const DropdownMenuItem(value: 'super_admin', child: Text('Platform Super Admin (Developer Only)')),
                 ],
                 onChanged: (val) {
                   if (val != null) setDlgState(() => selectedRole = val);
@@ -1590,6 +1672,15 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
             FilledButton(
               onPressed: () async {
+                if (selectedRole == 'super_admin' && !isDeveloper) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Access Denied: Only the platform developer can assign Super Admin role.'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                  return;
+                }
                 Navigator.pop(ctx);
                 try {
                   await FirebaseFirestore.instance.collection('users').doc(userId).update({
@@ -1597,7 +1688,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                     'roleUpdatedAt': FieldValue.serverTimestamp(),
                   });
                   // If granted super_admin, also mirror to super_admins collection
-                  if (selectedRole == 'super_admin') {
+                  if (selectedRole == 'super_admin' && isDeveloper) {
                     final adminName = (userName != null && userName.trim().isNotEmpty)
                         ? userName.trim()
                         : (userEmail.contains('@') ? userEmail.split('@').first : userEmail);
@@ -1606,7 +1697,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                       'email': userEmail,
                       'role': 'super_admin',
                       'grantedAt': FieldValue.serverTimestamp(),
-                      'grantedBy': AuthService().currentUser?.email ?? 'SuperAdmin',
+                      'grantedBy': AuthService().currentUser?.email ?? 'Platform Developer',
                     }, SetOptions(merge: true));
                   }
                   if (mounted) {

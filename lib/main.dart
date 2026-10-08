@@ -110,20 +110,37 @@ class _UserStateRouterState extends State<UserStateRouter> {
       final user = AuthService().currentUser;
       if (user != null) {
         final userEmail = user.email?.trim().toLowerCase();
-        final isSuperAdminEmail = userEmail == 'arunbsssbars@gmail.com';
+        final isDeveloperEmail = userEmail == 'arunbsssbars@gmail.com';
+        bool isAuthorizedSuperAdmin = isDeveloperEmail;
 
-        if (isSuperAdminEmail) {
+        if (!isAuthorizedSuperAdmin && userEmail != null && userEmail.isNotEmpty) {
+          try {
+            final saEmailDoc = await FirebaseFirestore.instance.collection('super_admins').doc(userEmail).get();
+            if (saEmailDoc.exists) {
+              isAuthorizedSuperAdmin = true;
+            } else {
+              final saUidDoc = await FirebaseFirestore.instance.collection('super_admins').doc(user.uid).get();
+              if (saUidDoc.exists) {
+                isAuthorizedSuperAdmin = true;
+              }
+            }
+          } catch (_) {}
+        }
+
+        if (isAuthorizedSuperAdmin) {
           _isSuperAdmin = true;
           try {
             final adminName = (user.displayName != null && user.displayName!.trim().isNotEmpty)
                 ? user.displayName!.trim()
-                : 'Arun (Root Super Admin)';
-            await FirebaseFirestore.instance.collection('super_admins').doc(user.uid).set({
-              'email': user.email,
-              'name': adminName,
-              'role': 'super_admin',
-              'assignedAt': FieldValue.serverTimestamp(),
-            }, SetOptions(merge: true));
+                : (isDeveloperEmail ? 'Arun (Root Super Admin)' : (userEmail ?? 'Super Admin'));
+            if (isDeveloperEmail) {
+              await FirebaseFirestore.instance.collection('super_admins').doc(user.uid).set({
+                'email': user.email,
+                'name': adminName,
+                'role': 'super_admin',
+                'assignedAt': FieldValue.serverTimestamp(),
+              }, SetOptions(merge: true));
+            }
             await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
               'email': user.email,
               'role': 'super_admin',
@@ -141,7 +158,7 @@ class _UserStateRouterState extends State<UserStateRouter> {
         }
 
         // 1. If super admin has no enterprise assigned, auto-assign first available enterprise
-        if ((eId == null || eId.isEmpty) && isSuperAdminEmail) {
+        if ((eId == null || eId.isEmpty) && isAuthorizedSuperAdmin) {
           try {
             final allEnts = await FirebaseFirestore.instance.collection('enterprises').limit(1).get();
             if (allEnts.docs.isNotEmpty) {
@@ -245,7 +262,7 @@ class _UserStateRouterState extends State<UserStateRouter> {
               });
             }
             return;
-          } else if (!isSuperAdminEmail) {
+          } else if (!isAuthorizedSuperAdmin) {
             await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
               'enterpriseId': FieldValue.delete(),
             });
@@ -1291,6 +1308,23 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
       try {
+        final email = user.email?.trim().toLowerCase();
+        if (email != null && email.isNotEmpty) {
+          final saDoc = await FirebaseFirestore.instance.collection('super_admins').doc(email).get();
+          if (saDoc.exists && mounted) {
+            setState(() {
+              _userRole = 'super_admin';
+            });
+            return;
+          }
+          final saUidDoc = await FirebaseFirestore.instance.collection('super_admins').doc(user.uid).get();
+          if (saUidDoc.exists && mounted) {
+            setState(() {
+              _userRole = 'super_admin';
+            });
+            return;
+          }
+        }
         final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
         if (doc.exists && doc.data() != null && mounted) {
           final role = doc.data()!['role'] as String? ?? 'employee';

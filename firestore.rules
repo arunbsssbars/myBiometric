@@ -135,9 +135,15 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isPlatformDeveloper() {
+      return isAuthenticated() &&
+        request.auth.token.email != null &&
+        request.auth.token.email.lower() == 'arunbsssbars@gmail.com';
+    }
+
     function isSuperAdmin() {
       return isAuthenticated() && (
-        (request.auth.token.email != null && request.auth.token.email.lower() == 'arunbsssbars@gmail.com') ||
+        isPlatformDeveloper() ||
         exists(/databases/$(database)/documents/super_admins/$(request.auth.uid)) ||
         (request.auth.token.email != null && exists(/databases/$(database)/documents/super_admins/$(request.auth.token.email.lower()))) ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin')
@@ -204,6 +210,7 @@ service cloud.firestore {
         (!('createdAt' in data) || data.createdAt is timestamp) &&
         (!('updatedAt' in data) || data.updatedAt is timestamp) &&
         (!('fcmUpdatedAt' in data) || data.fcmUpdatedAt is timestamp) &&
+        (!('roleUpdatedAt' in data) || data.roleUpdatedAt is timestamp) &&
         (!('allowedVerificationMethods' in data) || (data.allowedVerificationMethods is list && data.allowedVerificationMethods.size() <= 10)) &&
         (!('facialSignature' in data) || (data.facialSignature is list && data.facialSignature.size() <= 512));
     }
@@ -272,7 +279,7 @@ service cloud.firestore {
     // SUPER ADMINS COLLECTION
     match /super_admins/{adminId} {
       allow read: if isSuperAdmin();
-      allow write: if isSuperAdmin() || (request.auth.token.email != null && request.auth.token.email.lower() == 'arunbsssbars@gmail.com');
+      allow write: if isPlatformDeveloper();
     }
 
     // AUDIT LOGS (Immutable system logs)
@@ -289,9 +296,13 @@ service cloud.firestore {
         resource.data.enterpriseId != null
       );
 
-      allow create: if isAuthenticated() && (
-        isSuperAdmin() ||
-        (isValidUser(request.resource.data) && (
+      // CREATE:
+      // - Setting role == 'super_admin' strictly requires isPlatformDeveloper()
+      // - Non-developers can NEVER set role to 'super_admin'
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (
+        (request.resource.data.role == 'super_admin' && isPlatformDeveloper()) ||
+        (request.resource.data.role != 'super_admin' && (
+          isSuperAdmin() ||
           request.auth.uid == userId ||
           (request.resource.data.enterpriseId != null && (
             isEnterpriseAdmin(request.resource.data.enterpriseId) ||
@@ -300,17 +311,25 @@ service cloud.firestore {
         ))
       );
 
-      allow update: if isAuthenticated() && (
-        isSuperAdmin() ||
-        (isValidUser(request.resource.data) && (
+      // UPDATE:
+      // - Any write setting or updating role == 'super_admin' requires isPlatformDeveloper()
+      // - Non-developers can NEVER set or update a user's role to 'super_admin'
+      // - Modifying an existing super_admin user doc also strictly requires isPlatformDeveloper()
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (
+        (request.resource.data.role == 'super_admin' && isPlatformDeveloper()) ||
+        (request.resource.data.role != 'super_admin' && resource.data.role != 'super_admin' && (
+          isSuperAdmin() ||
           isOwner(userId) ||
           (resource.data.enterpriseId != null && isEnterpriseAdmin(resource.data.enterpriseId)) ||
           (request.resource.data.enterpriseId != null && isEnterpriseAdmin(request.resource.data.enterpriseId))
         ))
       );
 
-      allow delete: if isSuperAdmin() || (
-        resource.data.enterpriseId != null && isEnterpriseAdmin(resource.data.enterpriseId)
+      allow delete: if isPlatformDeveloper() || (
+        resource.data.role != 'super_admin' && (
+          isSuperAdmin() ||
+          (resource.data.enterpriseId != null && isEnterpriseAdmin(resource.data.enterpriseId))
+        )
       );
     }
 
