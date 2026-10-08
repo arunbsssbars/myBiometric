@@ -1150,6 +1150,23 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                       }
                       setDlgState(() => isSaving = true);
                       try {
+                        // Check uniqueness of enterprise ID / code before creation
+                        final docSnap = await FirebaseFirestore.instance.collection('enterprises').doc(code).get();
+                        final query1 = await FirebaseFirestore.instance.collection('enterprises').where('companyCode', isEqualTo: code).limit(1).get();
+                        final query2 = await FirebaseFirestore.instance.collection('enterprises').where('code', isEqualTo: code).limit(1).get();
+                        if (docSnap.exists || query1.docs.isNotEmpty || query2.docs.isNotEmpty) {
+                          setDlgState(() => isSaving = false);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Enterprise ID "$code" is already taken! Please choose a unique code.'),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            );
+                          }
+                          return;
+                        }
+
                         final eId = 'ENT_${code}_${DateTime.now().millisecondsSinceEpoch % 10000}';
                         await FirebaseFirestore.instance.collection('enterprises').doc(eId).set({
                           'name': name,

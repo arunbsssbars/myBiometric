@@ -401,6 +401,9 @@ class JoinCompanyScreen extends StatefulWidget {
 class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _joinCodeController = TextEditingController();
+  final _joinNameController = TextEditingController();
+  final _joinEmpIdController = TextEditingController();
+  final _joinEmailController = TextEditingController();
 
   // Admin registration controllers
   final _adminNameController = TextEditingController();
@@ -418,6 +421,11 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    final user = AuthService().currentUser;
+    if (user != null) {
+      _joinNameController.text = user.displayName ?? '';
+      _joinEmailController.text = user.email ?? '';
+    }
     _fetchLinkedEnterprises();
   }
 
@@ -425,6 +433,9 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
   void dispose() {
     _tabController.dispose();
     _joinCodeController.dispose();
+    _joinNameController.dispose();
+    _joinEmpIdController.dispose();
+    _joinEmailController.dispose();
     _adminNameController.dispose();
     _adminCodeController.dispose();
     _adminPinController.dispose();
@@ -549,7 +560,39 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
 
   Future<void> _joinAsEmployee() async {
     final code = _joinCodeController.text.trim().toUpperCase();
-    if (code.isEmpty) return;
+    final name = _joinNameController.text.trim();
+    final empId = _joinEmpIdController.text.trim();
+    final email = _joinEmailController.text.trim();
+
+    if (code.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter the Company Code (Enterprise ID).'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter your Full Name.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    if (empId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter your Employee ID (e.g. EMP-101).'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
 
     if (_joinAsCoAdmin && _coAdminPinController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -595,14 +638,15 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
       }
 
       final user = AuthService().currentUser!;
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      final displayName = user.displayName ?? userDoc.data()?['fullName'] ?? userDoc.data()?['name'] ?? user.email?.split('@').first ?? 'Employee';
+      final effectiveEmail = email.isNotEmpty ? email : (user.email ?? '');
 
       if (!_joinAsCoAdmin) {
         // Regular employee self-joining requires administrator approval before registration is complete
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'email': user.email ?? '',
-          'fullName': displayName,
+          'email': effectiveEmail,
+          'fullName': name,
+          'name': name,
+          'employeeId': empId,
           'role': 'employee',
           'enterpriseId': code,
           'approvalStatus': 'PENDING_APPROVAL',
@@ -610,6 +654,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
           'requestedEnterpriseId': code,
           'requestedAt': FieldValue.serverTimestamp(),
           'createdAt': FieldValue.serverTimestamp(),
+          'allowedVerificationMethods': <String>[], // Default to empty -> Kiosk terminal only
         }, SetOptions(merge: true));
 
         try {
@@ -619,24 +664,31 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
               .collection('employees')
               .doc(user.uid)
               .set({
-            'fullName': displayName,
-            'email': user.email ?? '',
+            'fullName': name,
+            'name': name,
+            'employeeId': empId,
+            'email': effectiveEmail,
             'role': 'employee',
             'status': 'PENDING_APPROVAL',
             'approvalStatus': 'PENDING_APPROVAL',
             'biometricsEnrolled': false,
+            'allowedVerificationMethods': <String>[],
             'requestedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
         } catch (_) {}
       } else {
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'email': user.email ?? '',
+          'email': effectiveEmail,
+          'fullName': name,
+          'name': name,
+          'employeeId': empId,
           'role': 'enterprise_admin',
           'enterpriseId': code,
           'linkedEnterprises': FieldValue.arrayUnion([code]),
           'approvalStatus': 'APPROVED',
           'status': 'ACTIVE',
           'createdAt': FieldValue.serverTimestamp(),
+          'allowedVerificationMethods': ['MOBILE_GPS', 'KIOSK_FACE', 'PHONE_BIOMETRICS', 'OFFICE_WIFI'],
         }, SetOptions(merge: true));
       }
 
@@ -675,6 +727,18 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
       return;
     }
 
+    // Format validation (alphanumeric, hyphens, underscores)
+    final codeRegex = RegExp(r'^[A-Z0-9_-]+$');
+    if (!codeRegex.hasMatch(code)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Company Code may only contain uppercase letters, numbers, hyphens, and underscores.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       final entRef = FirebaseFirestore.instance.collection('enterprises').doc(code);
@@ -683,8 +747,30 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
         if (!mounted) return;
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('This Company Code is already taken! Please choose another.'),
+          SnackBar(
+            content: Text('Enterprise ID "$code" is already taken! Please choose a unique ID.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+
+      final queryByCode = await FirebaseFirestore.instance
+          .collection('enterprises')
+          .where('code', isEqualTo: code)
+          .limit(1)
+          .get();
+      final queryByCompanyCode = await FirebaseFirestore.instance
+          .collection('enterprises')
+          .where('companyCode', isEqualTo: code)
+          .limit(1)
+          .get();
+      if (queryByCode.docs.isNotEmpty || queryByCompanyCode.docs.isNotEmpty) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Enterprise ID "$code" is already taken! Please choose a unique ID.'),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -900,9 +986,39 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
                             ),
                           ],
                           decoration: InputDecoration(
-                            labelText: 'Company Code (e.g. APEX-HQ)',
+                            labelText: 'Company Code / Enterprise ID (e.g. APEX-HQ)*',
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                             prefixIcon: const Icon(Icons.apartment),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _joinNameController,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: InputDecoration(
+                            labelText: 'Your Full Name (e.g. Sarah Connor)*',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            prefixIcon: const Icon(Icons.person_outline),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _joinEmpIdController,
+                          textCapitalization: TextCapitalization.characters,
+                          decoration: InputDecoration(
+                            labelText: 'Employee ID (e.g. EMP-101)*',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            prefixIcon: const Icon(Icons.badge_outlined),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _joinEmailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            labelText: 'Email Address (Optional)',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            prefixIcon: const Icon(Icons.email_outlined),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -1932,215 +2048,157 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       // Scrollable body to guarantee ZERO overflow on any device
+      // Scrollable body to guarantee ZERO overflow on any device
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 960),
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Super Admin Quick-Access Banner
-                if (_userRole == 'super_admin') ...[
-                  InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const SuperAdminConsoleScreen(),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF1E1B4B), Color(0xFF3730A3)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF4F46E5).withValues(alpha: 0.3),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFBBF24).withValues(alpha: 0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.shield_rounded, color: Color(0xFFFBBF24), size: 24),
-                          ),
-                          const SizedBox(width: 14),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Platform Super Admin Active',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                SizedBox(height: 2),
-                                Text(
-                                  'Tap to govern all enterprises, staff & platform metrics',
-                                  style: TextStyle(color: Colors.white70, fontSize: 11),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFFFBBF24), size: 14),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                ],
+            child: StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(AuthService().currentUser?.uid)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+                  return _buildFaceCheckingSkeletonLoader();
+                }
 
-                // Modern Digital Clock Card
-                const ModernDigitalClockCard(),
-                const SizedBox(height: 18),
-
-                // Dynamic Face ID Status & Enrollment Section
-                StreamBuilder<DocumentSnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(AuthService().currentUser?.uid)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-                      return _buildFaceCheckingSkeletonLoader();
-                    }
-
-                    final data = snapshot.data?.data() as Map<String, dynamic>?;
-                    final role = data?['role'] as String?;
-                    if (role != null && (role == 'enterprise_admin' || role == 'admin' || role == 'super_admin')) {
-                      if (!_isEnterpriseAdmin) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted && !_isEnterpriseAdmin) {
-                            setState(() {
-                              _userRole = role;
-                              _isEnterpriseAdmin = true;
-                            });
-                          }
+                final data = snapshot.data?.data() as Map<String, dynamic>?;
+                final role = data?['role'] as String?;
+                if (role != null && (role == 'enterprise_admin' || role == 'admin' || role == 'super_admin')) {
+                  if (!_isEnterpriseAdmin) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted && !_isEnterpriseAdmin) {
+                        setState(() {
+                          _userRole = role;
+                          _isEnterpriseAdmin = true;
                         });
                       }
-                    }
+                    });
+                  }
+                }
 
-                    final isEnrolled = data?['biometricsEnrolled'] == true;
+                final rawMethods = data?['allowedVerificationMethods'] as List<dynamic>?;
+                final List<String> allowedMethods = (rawMethods != null && rawMethods.isNotEmpty)
+                    ? rawMethods.map((e) => e.toString()).toList()
+                    : (_isAdminOrHigher ? ['MOBILE_GPS', 'KIOSK_FACE', 'PHONE_BIOMETRICS'] : []);
 
-                    if (!isEnrolled) {
-                      // Beautiful, spacious, un-cramped Face Not Registered Card
-                      return _buildFaceNotRegisteredCard(context);
-                    }
+                final bool canUseBiometrics = _isAdminOrHigher ||
+                    allowedMethods.contains('KIOSK_FACE') ||
+                    allowedMethods.contains('PHONE_BIOMETRICS');
 
-                    // If enrolled: sleek verified badge + Incomplete Shifts + Today's Activity section
-                    final user = AuthService().currentUser;
-                    return StreamBuilder<List<QueryDocumentSnapshot>>(
+                final isEnrolled = data?['biometricsEnrolled'] == true;
+                final user = AuthService().currentUser;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // 1. User Specific Identity Card
+                    _buildUserIdentityCard(context, data),
+                    const SizedBox(height: 16),
+
+                    // 2. Modern Digital Clock Card
+                    const ModernDigitalClockCard(),
+                    const SizedBox(height: 18),
+
+                    // 3. Biometric Registration Prompt (ONLY shown if admin has granted biometric access and user is not enrolled)
+                    if (!isEnrolled && canUseBiometrics) ...[
+                      _buildFaceNotRegisteredCard(context),
+                      const SizedBox(height: 18),
+                    ],
+
+                    // 4. Personal Mobile Clock In / Out Action Card
+                    MobilePunchCard(
+                      enterpriseId: enterpriseId,
+                      userData: data,
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 5. Incomplete Shifts / Regularization Stream
+                    StreamBuilder<List<QueryDocumentSnapshot>>(
                       stream: user != null
                           ? DatabaseService().getUserApprovalRequests(user.uid)
                           : const Stream.empty(),
                       builder: (context, requestsSnapshot) {
                         final userRequests = requestsSnapshot.data ?? [];
-
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Personal Mobile Clock In / Out Action Card
-                            MobilePunchCard(
-                              enterpriseId: enterpriseId,
-                              userData: data,
-                            ),
-                            const SizedBox(height: 10),
-                            // Missing Clock-Out Alert / Regularization Section
-                            _buildIncompleteShiftsSection(data, userRequests),
-                            const SizedBox(height: 10),
-                            // Dedicated Attendance Activity Navigation Card
-                            Container(
-                              decoration: BoxDecoration(
-                                color: context.colors.surface,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: context.colors.outlineVariant),
-                              ),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                                leading: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF2563EB).withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(Icons.history_rounded, color: Color(0xFF2563EB), size: 22),
-                                ),
-                                title: Text('Attendance Activity', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: context.colors.onSurface)),
-                                subtitle: Text('View punch timeline, timesheet history & PDF export', style: TextStyle(fontSize: 12, color: context.colors.onSurfaceVariant)),
-                                trailing: Icon(Icons.chevron_right, color: context.colors.onSurfaceVariant),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => AttendanceActivityScreen(
-                                        enterpriseId: enterpriseId,
-                                        companyName: _effectiveCompanyName,
-                                        userRole: _userRole,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            // Leave & Time-Off Quick Action
-                            Container(
-                              decoration: BoxDecoration(
-                                color: context.colors.surface,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: context.colors.outlineVariant),
-                              ),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                                leading: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF0284C7).withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(Icons.beach_access_rounded, color: Color(0xFF0284C7), size: 22),
-                                ),
-                                title: Text('Leave & Time-Off', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: context.colors.onSurface)),
-                                subtitle: Text('Apply for time-off, sick leave, or check approvals', style: TextStyle(fontSize: 12, color: context.colors.onSurfaceVariant)),
-                                trailing: Icon(Icons.chevron_right, color: context.colors.onSurfaceVariant),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => LeaveManagementScreen(
-                                        enterpriseId: enterpriseId,
-                                        companyName: _effectiveCompanyName,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        );
+                        return _buildIncompleteShiftsSection(data, userRequests);
                       },
-                    );
-                  },
-                ),
-              ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 6. Dedicated Attendance Activity Navigation Card
+                    Container(
+                      decoration: BoxDecoration(
+                        color: context.colors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: context.colors.outlineVariant),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.history_rounded, color: Color(0xFF2563EB), size: 22),
+                        ),
+                        title: Text('Attendance Activity', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: context.colors.onSurface)),
+                        subtitle: Text('View punch timeline, timesheet history & PDF export', style: TextStyle(fontSize: 12, color: context.colors.onSurfaceVariant)),
+                        trailing: Icon(Icons.chevron_right, color: context.colors.onSurfaceVariant),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => AttendanceActivityScreen(
+                                enterpriseId: enterpriseId,
+                                companyName: _effectiveCompanyName,
+                                userRole: _userRole,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 7. Leave & Time-Off Quick Action
+                    Container(
+                      decoration: BoxDecoration(
+                        color: context.colors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: context.colors.outlineVariant),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.beach_access_rounded, color: Color(0xFF0284C7), size: 22),
+                        ),
+                        title: Text('Leave & Time-Off', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: context.colors.onSurface)),
+                        subtitle: Text('Apply for time-off, sick leave, or check approvals', style: TextStyle(fontSize: 12, color: context.colors.onSurfaceVariant)),
+                        trailing: Icon(Icons.chevron_right, color: context.colors.onSurfaceVariant),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => LeaveManagementScreen(
+                                enterpriseId: enterpriseId,
+                                companyName: _effectiveCompanyName,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -2148,6 +2206,256 @@ class _HomeScreenState extends State<HomeScreen> {
     ),
   );
 }
+
+  Widget _buildUserIdentityCard(BuildContext context, Map<String, dynamic>? userData) {
+    final user = AuthService().currentUser;
+    final fullName = (userData?['fullName'] as String?)?.trim() ??
+        (userData?['name'] as String?)?.trim() ??
+        user?.displayName ??
+        user?.email?.split('@').first ??
+        'Employee';
+    final empId = (userData?['employeeId'] as String?)?.trim() ?? 'N/A';
+    final department = (userData?['department'] as String?)?.trim() ?? 'General';
+    final email = (userData?['email'] as String?)?.trim() ?? user?.email ?? '';
+    final role = (userData?['role'] as String?) ?? _userRole;
+
+    Color roleColor;
+    Color roleBg;
+    String roleLabel;
+    IconData roleIcon;
+
+    if (role == 'super_admin') {
+      roleColor = const Color(0xFFD97706);
+      roleBg = const Color(0xFFFEF3C7);
+      roleLabel = 'SUPER ADMIN';
+      roleIcon = Icons.shield_rounded;
+    } else if (role == 'enterprise_admin' || role == 'admin' || _isEnterpriseAdmin) {
+      roleColor = const Color(0xFF2563EB);
+      roleBg = const Color(0xFFDBEAFE);
+      roleLabel = 'ADMINISTRATOR';
+      roleIcon = Icons.admin_panel_settings_rounded;
+    } else if (role == 'manager' || role == 'supervisor') {
+      roleColor = const Color(0xFF7C3AED);
+      roleBg = const Color(0xFFEDE9FE);
+      roleLabel = 'MANAGER';
+      roleIcon = Icons.manage_accounts_rounded;
+    } else {
+      roleColor = const Color(0xFF059669);
+      roleBg = const Color(0xFFD1FAE5);
+      roleLabel = 'STAFF';
+      roleIcon = Icons.badge_outlined;
+    }
+
+    final rawMethods = userData?['allowedVerificationMethods'] as List<dynamic>?;
+    final List<String> methods = (rawMethods != null && rawMethods.isNotEmpty)
+        ? rawMethods.map((e) => e.toString()).toList()
+        : (_isAdminOrHigher ? ['MOBILE_GPS', 'KIOSK_FACE', 'PHONE_BIOMETRICS'] : []);
+
+    final companyTitle = _effectiveCompanyName.isNotEmpty ? _effectiveCompanyName : widget.enterpriseId;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: context.colors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: context.colors.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 26,
+                      backgroundColor: roleColor.withValues(alpha: 0.15),
+                      child: Text(
+                        fullName.isNotEmpty ? fullName.substring(0, 1).toUpperCase() : 'U',
+                        style: TextStyle(
+                          color: roleColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              fullName,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: -0.2,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: roleBg,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(roleIcon, size: 12, color: roleColor),
+                                const SizedBox(width: 4),
+                                Text(
+                                  roleLabel,
+                                  style: TextStyle(
+                                    color: roleColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 10,
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'ID: $empId • $department',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: context.colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.business_rounded, size: 13, color: context.colors.onSurfaceVariant),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              '$companyTitle (${widget.enterpriseId})',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: context.colors.onSurfaceVariant,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, thickness: 1),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: context.colors.surfaceContainerHighest.withValues(alpha: 0.35),
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+            ),
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Punch Method: ',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.colors.onSurfaceVariant),
+                    ),
+                    if (_isAdminOrHigher)
+                      _buildMethodBadge('All Admin Channels', Icons.verified_user_rounded, const Color(0xFF2563EB))
+                    else if (methods.isEmpty)
+                      _buildMethodBadge('Office Kiosk Only', Icons.storefront_rounded, const Color(0xFF64748B))
+                    else ...[
+                      if (methods.contains('MOBILE_GPS'))
+                        _buildMethodBadge('Mobile GPS', Icons.location_on_rounded, const Color(0xFF059669)),
+                      if (methods.contains('KIOSK_FACE'))
+                        _buildMethodBadge('Kiosk Face', Icons.face_rounded, const Color(0xFF2563EB)),
+                      if (methods.contains('PHONE_BIOMETRICS'))
+                        _buildMethodBadge('Phone Biometrics', Icons.fingerprint_rounded, const Color(0xFF7C3AED)),
+                      if (methods.contains('OFFICE_WIFI'))
+                        _buildMethodBadge('Office Wi-Fi', Icons.wifi_rounded, const Color(0xFF0284C7)),
+                      if (methods.contains('KIOSK_PIN'))
+                        _buildMethodBadge('PIN Fallback', Icons.pin_rounded, const Color(0xFF475569)),
+                    ],
+                  ],
+                ),
+                Text(
+                  email.isNotEmpty ? email : 'Verified User',
+                  style: TextStyle(fontSize: 11, color: context.colors.onSurfaceVariant),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMethodBadge(String label, IconData icon, Color color) {
+    return Container(
+      margin: const EdgeInsets.only(right: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 10, color: color),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+          ),
+        ],
+      ),
+    );
+  }
 
   // Shimmering skeleton loader shown during initial credential check to prevent fallback flashing
   Widget _buildFaceCheckingSkeletonLoader() {

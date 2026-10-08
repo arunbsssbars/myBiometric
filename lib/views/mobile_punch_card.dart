@@ -119,8 +119,14 @@ class _MobilePunchCardState extends State<MobilePunchCard> {
     final themeColors = context.colors;
 
     // Check allowed verification methods configured by Admin
-    final allowedMethods = (widget.userData?['allowedVerificationMethods'] as List<dynamic>?)?.map((e) => e.toString()).toList();
-    if (allowedMethods != null && allowedMethods.isNotEmpty && !allowedMethods.contains('MOBILE_GPS')) {
+    final userRole = widget.userData?['role']?.toString();
+    final bool isAdmin = userRole == 'enterprise_admin' || userRole == 'admin' || userRole == 'super_admin';
+    final userMethodsRaw = widget.userData?['allowedVerificationMethods'] as List<dynamic>?;
+    final allowedMethods = (userMethodsRaw != null && userMethodsRaw.isNotEmpty)
+        ? userMethodsRaw.map((e) => e.toString()).toList()
+        : (isAdmin ? const ['MOBILE_GPS'] : const ['KIOSK_FACE']);
+
+    if (!isAdmin && !allowedMethods.contains('MOBILE_GPS')) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Mobile GPS clock-in is disabled for your account. Please use the Office Kiosk.'),
@@ -551,11 +557,15 @@ class _MobilePunchCardState extends State<MobilePunchCard> {
 
             final userMethodsRaw = widget.userData?['allowedVerificationMethods'] as List<dynamic>?;
             final entMethodsRaw = entData?['defaultAllowedVerificationMethods'] as List<dynamic>?;
+            final cardUserRole = widget.userData?['role']?.toString();
+            final bool isCardAdmin = cardUserRole == 'enterprise_admin' || cardUserRole == 'admin' || cardUserRole == 'super_admin';
             final List<String> effectiveMethods = (userMethodsRaw != null && userMethodsRaw.isNotEmpty)
                 ? userMethodsRaw.map((e) => e.toString()).toList()
-                : (entMethodsRaw != null && entMethodsRaw.isNotEmpty)
-                    ? entMethodsRaw.map((e) => e.toString()).toList()
-                    : const ['MOBILE_GPS', 'KIOSK_FACE', 'PHONE_BIOMETRICS', 'OFFICE_WIFI', 'KIOSK_PIN'];
+                : (isCardAdmin
+                    ? const ['MOBILE_GPS', 'KIOSK_FACE', 'PHONE_BIOMETRICS', 'OFFICE_WIFI', 'KIOSK_PIN']
+                    : (entMethodsRaw != null && entMethodsRaw.isNotEmpty)
+                        ? entMethodsRaw.map((e) => e.toString()).toList()
+                        : const ['KIOSK_FACE']);
 
             final bool isMobileGpsAllowed = effectiveMethods.contains('MOBILE_GPS');
             final bool isTerminalAllowed = effectiveMethods.any((m) =>

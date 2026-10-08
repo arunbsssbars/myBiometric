@@ -3723,7 +3723,7 @@ class _EnterpriseAdminDashboardScreenState
     final existingMethods = (data['allowedVerificationMethods'] as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList() ??
-        ['KIOSK_FACE', 'KIOSK_PIN', 'MOBILE_GPS', 'OFFICE_WIFI'];
+        ['KIOSK_FACE', 'KIOSK_PIN'];
 
     final selected = Set<String>.from(existingMethods);
     bool isSaving = false;
@@ -3841,6 +3841,17 @@ class _EnterpriseAdminDashboardScreenState
                             userId: empDoc.id,
                             methods: selected.toList(),
                           );
+                          try {
+                            await FirebaseFirestore.instance
+                                .collection('enterprises')
+                                .doc(widget.enterpriseId)
+                                .collection('employees')
+                                .doc(empDoc.id)
+                                .set({
+                              'allowedVerificationMethods': selected.toList(),
+                              'updatedAt': FieldValue.serverTimestamp(),
+                            }, SetOptions(merge: true));
+                          } catch (_) {}
                           AuditLogService().logAction(
                             enterpriseId: widget.enterpriseId,
                             action: 'VERIFICATION_CHANNELS_UPDATED',
