@@ -836,6 +836,7 @@ class _KioskModeScreenState extends State<KioskModeScreen> with SingleTickerProv
                   builder: (context, constraints) {
                     final isLandscape = constraints.maxHeight < 540 ||
                         MediaQuery.of(context).orientation == Orientation.landscape;
+                    final isCompact = constraints.maxWidth < 400;
                     final scanBoxWidth = isLandscape ? 210.0 : 270.0;
                     final scanBoxHeight = isLandscape ? 165.0 : 330.0;
 
@@ -844,147 +845,160 @@ class _KioskModeScreenState extends State<KioskModeScreen> with SingleTickerProv
                         // Top Bar
                         Padding(
                           padding: EdgeInsets.symmetric(
-                            horizontal: 16.0,
+                            horizontal: isCompact ? 8.0 : 16.0,
                             vertical: isLandscape ? 4.0 : 8.0,
                           ),
                           child: Row(
                             children: [
-                              IconButton(
-                                icon: Icon(Icons.close, color: context.colors.onSurface, size: 20),
-                                onPressed: _requestExitKiosk,
-                                tooltip: 'Exit Kiosk (Admin PIN)',
-                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                padding: const EdgeInsets.all(4),
-                              ),
-                              if (_availableCameras.length > 1) ...[
-                                IconButton(
-                                  icon: Icon(Icons.flip_camera_android, color: context.colors.onSurface, size: 20),
-                                  onPressed: _switchCamera,
-                                  tooltip: 'Switch Camera',
-                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                  padding: const EdgeInsets.all(4),
-                                ),
-                              ],
-                              if (_isFrontCamera)
-                                IconButton(
-                                  icon: Icon(
-                                    _shouldMirrorPreview ? Icons.swap_horiz_rounded : Icons.stay_current_portrait_rounded,
-                                    color: _shouldMirrorPreview ? context.colors.primary : context.colors.onSurface,
-                                    size: 20,
+                              // 1. Flexible scrollable action strip: guarantees all action buttons are reachable without crowding
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  physics: const BouncingScrollPhysics(),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(Icons.close, color: context.colors.onSurface, size: 20),
+                                        onPressed: _requestExitKiosk,
+                                        tooltip: 'Exit Kiosk (Admin PIN)',
+                                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                        padding: const EdgeInsets.all(4),
+                                      ),
+                                      if (_availableCameras.length > 1) ...[
+                                        IconButton(
+                                          icon: Icon(Icons.flip_camera_android, color: context.colors.onSurface, size: 20),
+                                          onPressed: _switchCamera,
+                                          tooltip: 'Switch Camera',
+                                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                          padding: const EdgeInsets.all(4),
+                                        ),
+                                      ],
+                                      if (_isFrontCamera)
+                                        IconButton(
+                                          icon: Icon(
+                                            _shouldMirrorPreview ? Icons.swap_horiz_rounded : Icons.stay_current_portrait_rounded,
+                                            color: _shouldMirrorPreview ? context.colors.primary : context.colors.onSurface,
+                                            size: 20,
+                                          ),
+                                          onPressed: () {
+                                            final newMirror = !_shouldMirrorPreview;
+                                            setState(() {
+                                              _mirrorOverride = newMirror;
+                                            });
+                                            SharedPreferences.getInstance().then((prefs) {
+                                              prefs.setBool('kiosk_selfie_view_mirrored', newMirror);
+                                            }).catchError((_) {});
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text(newMirror
+                                                    ? 'Selfie Mirror Mode Enabled (Mirrored)'
+                                                    : 'Direct Sensor Mode Enabled (Un-mirrored)'),
+                                                duration: const Duration(seconds: 1),
+                                                behavior: SnackBarBehavior.floating,
+                                              ),
+                                            );
+                                          },
+                                          tooltip: _shouldMirrorPreview
+                                              ? 'Selfie Mirror Active (Tap to toggle)'
+                                              : 'Direct View Active (Tap to toggle)',
+                                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                          padding: const EdgeInsets.all(4),
+                                        ),
+                                      IconButton(
+                                        icon: Icon(Icons.dialpad, color: context.colors.onSurface, size: 20),
+                                        onPressed: _showEmployeePinFallbackDialog,
+                                        tooltip: 'Employee ID Punch',
+                                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                        padding: const EdgeInsets.all(4),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(Icons.tune_rounded, color: context.colors.onSurface, size: 20),
+                                        onPressed: _showKioskSettingsBottomSheet,
+                                        tooltip: 'Audio & Device Settings',
+                                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                        padding: const EdgeInsets.all(4),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(
+                                          _viewModel.selectedPunchMode == 'BREAK' ? Icons.coffee_rounded : Icons.coffee_outlined,
+                                          color: _viewModel.selectedPunchMode == 'BREAK' ? context.status.warning.color : context.colors.onSurface,
+                                          size: 20,
+                                        ),
+                                        onPressed: _showKioskBreakOptionsSheet,
+                                        tooltip: 'Break Controls',
+                                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                        padding: const EdgeInsets.all(4),
+                                      ),
+                                    ],
                                   ),
-                                  onPressed: () {
-                                    final newMirror = !_shouldMirrorPreview;
-                                    setState(() {
-                                      _mirrorOverride = newMirror;
-                                    });
-                                    SharedPreferences.getInstance().then((prefs) {
-                                      prefs.setBool('kiosk_selfie_view_mirrored', newMirror);
-                                    }).catchError((_) {});
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(newMirror
-                                            ? 'Selfie Mirror Mode Enabled (Mirrored)'
-                                            : 'Direct Sensor Mode Enabled (Un-mirrored)'),
-                                        duration: const Duration(seconds: 1),
-                                        behavior: SnackBarBehavior.floating,
-                                      ),
-                                    );
-                                  },
-                                  tooltip: _shouldMirrorPreview
-                                      ? 'Selfie Mirror Active (Tap to toggle)'
-                                      : 'Direct View Active (Tap to toggle)',
-                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                  padding: const EdgeInsets.all(4),
                                 ),
-                              IconButton(
-                                icon: Icon(Icons.dialpad, color: context.colors.onSurface, size: 20),
-                                onPressed: _showEmployeePinFallbackDialog,
-                                tooltip: 'Employee ID Punch',
-                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                padding: const EdgeInsets.all(4),
                               ),
-                              IconButton(
-                                icon: Icon(Icons.tune_rounded, color: context.colors.onSurface, size: 20),
-                                onPressed: _showKioskSettingsBottomSheet,
-                                tooltip: 'Audio & Device Settings',
-                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                padding: const EdgeInsets.all(4),
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  _viewModel.selectedPunchMode == 'BREAK' ? Icons.coffee_rounded : Icons.coffee_outlined,
-                                  color: _viewModel.selectedPunchMode == 'BREAK' ? context.status.warning.color : context.colors.onSurface,
-                                  size: 20,
-                                ),
-                                onPressed: _showKioskBreakOptionsSheet,
-                                tooltip: 'Break Controls',
-                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                padding: const EdgeInsets.all(4),
-                              ),
-                              const Spacer(),
-                              Flexible(
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    ValueListenableBuilder<int>(
-                                      valueListenable: OfflineAttendanceQueueService().pendingCountNotifier,
-                                      builder: (context, pendingCount, _) {
-                                        if (pendingCount > 0) {
-                                          return InkWell(
-                                            onTap: () async {
-                                              final synced = await _viewModel.syncOfflinePunches();
-                                              if (mounted && context.mounted) {
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text(synced > 0
-                                                        ? "Synced $synced offline punches!"
-                                                        : "Sync failed. Check internet connection."),
-                                                    backgroundColor: synced > 0 ? context.status.success.color : context.status.warning.color,
-                                                  ),
-                                                );
-                                              }
-                                            },
-                                            child: Container(
-                                              margin: const EdgeInsets.only(right: 6),
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                              decoration: BoxDecoration(
-                                                color: context.status.warning.container,
-                                                borderRadius: BorderRadius.circular(16),
-                                                border: Border.all(color: Colors.amberAccent),
-                                              ),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(Icons.cloud_upload_outlined, color: context.status.warning.onContainer, size: 14),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    "$pendingCount",
-                                                    style: TextStyle(
-                                                      color: context.colors.onSurface,
-                                                      fontWeight: FontWeight.bold,
-                                                      
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
+                              const SizedBox(width: 6),
+
+                              // 2. Right Status Area: flex-safe chips that never overflow
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  ValueListenableBuilder<int>(
+                                    valueListenable: OfflineAttendanceQueueService().pendingCountNotifier,
+                                    builder: (context, pendingCount, _) {
+                                      if (pendingCount > 0) {
+                                        return InkWell(
+                                          onTap: () async {
+                                            final synced = await _viewModel.syncOfflinePunches();
+                                            if (mounted && context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(synced > 0
+                                                      ? "Synced $synced offline punches!"
+                                                      : "Sync failed. Check internet connection."),
+                                                  backgroundColor: synced > 0 ? context.status.success.color : context.status.warning.color,
+                                                ),
+                                              );
+                                            }
+                                          },
+                                          child: Container(
+                                            margin: const EdgeInsets.only(right: 6),
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                            decoration: BoxDecoration(
+                                              color: context.status.warning.container,
+                                              borderRadius: BorderRadius.circular(16),
+                                              border: Border.all(color: Colors.amberAccent),
                                             ),
-                                          );
-                                        }
-                                        return const SizedBox.shrink();
-                                      },
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.cloud_upload_outlined, color: context.status.warning.onContainer, size: 14),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  "$pendingCount",
+                                                  style: TextStyle(
+                                                    color: context.colors.onSurface,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                      return const SizedBox.shrink();
+                                    },
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: context.colors.surface.withValues(alpha: 0.7),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: context.status.success.border),
                                     ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                      decoration: BoxDecoration(
-                                        color: context.colors.surface.withValues(alpha: 0.7),
-                                        borderRadius: BorderRadius.circular(16),
-                                        border: Border.all(color: context.status.success.border),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.shield_outlined, color: context.status.success.color, size: 14),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.shield_outlined, color: context.status.success.color, size: 14),
+                                        if (!isCompact) ...[
                                           const SizedBox(width: 4),
                                           Text(
                                             "KIOSK",
@@ -995,47 +1009,45 @@ class _KioskModeScreenState extends State<KioskModeScreen> with SingleTickerProv
                                             ),
                                           ),
                                         ],
-                                      ),
+                                      ],
                                     ),
-                                    if (_viewModel.selectedPunchMode == 'BREAK') ...[
-                                      const SizedBox(width: 6),
-                                      Flexible(
-                                        child: InkWell(
-                                          onTap: _showKioskBreakOptionsSheet,
+                                  ),
+                                  if (_viewModel.selectedPunchMode == 'BREAK') ...[
+                                    const SizedBox(width: 6),
+                                    InkWell(
+                                      onTap: _showKioskBreakOptionsSheet,
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                        decoration: BoxDecoration(
+                                          color: context.status.warning.container,
                                           borderRadius: BorderRadius.circular(16),
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                            decoration: BoxDecoration(
-                                              color: context.status.warning.container,
-                                              borderRadius: BorderRadius.circular(16),
-                                              border: Border.all(color: Colors.amberAccent),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(Icons.coffee_rounded, color: context.status.warning.onContainer, size: 14),
-                                                const SizedBox(width: 4),
-                                                Flexible(
-                                                  child: Text(
-                                                    "${_viewModel.selectedBreakType.toUpperCase()} BREAK",
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    style: TextStyle(
-                                                      color: context.colors.onSurface,
-                                                      fontWeight: FontWeight.bold,
-                                                      letterSpacing: 0.8,
-                                                      
-                                                    ),
-                                                  ),
+                                          border: Border.all(color: Colors.amberAccent),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.coffee_rounded, color: context.status.warning.onContainer, size: 14),
+                                            const SizedBox(width: 4),
+                                            ConstrainedBox(
+                                              constraints: BoxConstraints(maxWidth: isCompact ? 50 : 80),
+                                              child: Text(
+                                                isCompact ? "BREAK" : "${_viewModel.selectedBreakType.toUpperCase()} BREAK",
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: context.colors.onSurface,
+                                                  fontWeight: FontWeight.bold,
+                                                  letterSpacing: 0.8,
                                                 ),
-                                              ],
+                                              ),
                                             ),
-                                          ),
+                                          ],
                                         ),
                                       ),
-                                    ],
+                                    ),
                                   ],
-                                ),
+                                ],
                               ),
                             ],
                           ),

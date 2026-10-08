@@ -12,7 +12,7 @@ void main() {
       service.clearForTesting();
     });
 
-    final policy = PerDiemPolicy(
+    const policy = PerDiemPolicy(
       id: 'POL_US',
       enterpriseId: 'ENT_GLOBAL',
       currencyCode: 'USD',

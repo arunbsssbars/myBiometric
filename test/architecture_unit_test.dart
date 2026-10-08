@@ -194,7 +194,7 @@ void main() {
       expect(norm, closeTo(1.0, 0.0001));
     });
 
-    test('throws BiometricCollisionException when another employee has matching face >= 0.72', () async {
+    test('throws BiometricCollisionException when another employee has matching face >= 0.60', () async {
       final mockRepo = MockUserRepository();
       final registeredSig = FaceMathUtils.l2Normalize([0.9, 0.4, 0.1]);
       mockRepo.existingEmployees = [
@@ -225,6 +225,42 @@ void main() {
       );
 
       // Verify no changes were saved
+      expect(mockRepo.lastUserId, isNull);
+    });
+
+    test('blocks collision when enterpriseId parameter is omitted but resolved via user profile', () async {
+      final mockRepo = MockUserRepository();
+      final registeredSig = FaceMathUtils.l2Normalize([0.9, 0.4, 0.1]);
+      mockRepo.existingEmployees = [
+        EmployeeProfile(
+          uid: 'emp_existing',
+          fullName: 'John Senior',
+          employeeId: 'EMP-010',
+          enterpriseId: 'ACME_CORP',
+          facialSignature: registeredSig,
+          biometricsEnrolled: true,
+        ),
+        const EmployeeProfile(
+          uid: 'user_profile_resolved',
+          fullName: 'John Junior',
+          employeeId: 'EMP-011',
+          enterpriseId: 'ACME_CORP',
+        ),
+      ];
+
+      final useCase = EnrollFaceUseCase(userRepository: mockRepo);
+      final newFaceFrame = FaceMathUtils.l2Normalize([0.905, 0.395, 0.1]);
+
+      expect(
+        () async => await useCase.execute(
+          userId: 'user_profile_resolved',
+          enterpriseId: '', // Omitted enterpriseId: should auto-resolve from profile
+          fullName: 'John Junior',
+          employeeId: 'EMP-011',
+          rawEmbeddings: [newFaceFrame],
+        ),
+        throwsA(isA<BiometricCollisionException>()),
+      );
       expect(mockRepo.lastUserId, isNull);
     });
 

@@ -25,7 +25,7 @@ class EnrollFaceUseCase {
 
   EnrollFaceUseCase({
     required UserRepository userRepository,
-    this.collisionThreshold = 0.72,
+    this.collisionThreshold = 0.60,
   }) : _userRepository = userRepository;
 
   Future<void> execute({
@@ -53,8 +53,16 @@ class EnrollFaceUseCase {
     }
 
     // 2. 1:N Biometric Deduplication Collision Check
-    if (enterpriseId.isNotEmpty && !allowAdminAuthorizedOverwrite) {
-      final candidates = await _userRepository.getEnterpriseEmployeesList(enterpriseId);
+    String effectiveEnterpriseId = enterpriseId.trim();
+    if (effectiveEnterpriseId.isEmpty) {
+      final profile = await _userRepository.getUserProfile(userId);
+      if (profile != null && profile.enterpriseId.trim().isNotEmpty) {
+        effectiveEnterpriseId = profile.enterpriseId.trim();
+      }
+    }
+
+    if (effectiveEnterpriseId.isNotEmpty && !allowAdminAuthorizedOverwrite) {
+      final candidates = await _userRepository.getEnterpriseEmployeesList(effectiveEnterpriseId);
       for (final candidate in candidates) {
         // Exclude the current user themselves (by UID or matching employeeId)
         if (candidate.uid == userId ||
