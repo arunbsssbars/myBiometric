@@ -549,6 +549,8 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                             builder: (_) => HomeScreen(
                               enterpriseId: doc.id,
                               companyName: name,
+                              userRole: 'super_admin',
+                              isAdmin: true,
                             ),
                           ),
                         );

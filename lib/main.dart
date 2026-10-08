@@ -111,6 +111,8 @@ class _UserStateRouterState extends State<UserStateRouter> {
   bool _isPendingApproval = false;
   String _enterpriseId = '';
   String _companyName = '';
+  String _userRole = 'employee';
+  bool _isEnterpriseAdmin = false;
 
   @override
   void initState() {
@@ -287,6 +289,8 @@ class _UserStateRouterState extends State<UserStateRouter> {
                   _isPendingApproval = true;
                   _enterpriseId = eId!;
                   _companyName = cName.toString();
+                  _userRole = userRole ?? 'employee';
+                  _isEnterpriseAdmin = false;
                   _isLoading = false;
                 });
               }
@@ -299,6 +303,8 @@ class _UserStateRouterState extends State<UserStateRouter> {
                 _isPendingApproval = false;
                 _enterpriseId = eId!;
                 _companyName = cName.toString();
+                _userRole = userRole ?? (isEnterpriseAdminUser ? 'enterprise_admin' : 'employee');
+                _isEnterpriseAdmin = isEnterpriseAdminUser;
                 _isLoading = false;
               });
             }
@@ -373,6 +379,8 @@ class _UserStateRouterState extends State<UserStateRouter> {
       return HomeScreen(
         enterpriseId: _enterpriseId,
         companyName: _companyName,
+        userRole: _userRole,
+        isAdmin: _isEnterpriseAdmin,
       );
     }
     if (_isSuperAdmin) {
@@ -1318,11 +1326,15 @@ class _ModernDigitalClockCardState extends State<ModernDigitalClockCard> {
 class HomeScreen extends StatefulWidget {
   final String enterpriseId;
   final String companyName;
+  final String? userRole;
+  final bool? isAdmin;
 
   const HomeScreen({
     super.key,
     required this.enterpriseId,
     this.companyName = '',
+    this.userRole,
+    this.isAdmin,
   });
 
   @override
@@ -1330,11 +1342,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String _userRole = 'employee';
+  late String _userRole;
+  late bool _isEnterpriseAdmin;
+
   bool get _isAdminOrHigher =>
       _userRole == 'enterprise_admin' ||
       _userRole == 'super_admin' ||
-      _userRole == 'admin';
+      _userRole == 'admin' ||
+      _isEnterpriseAdmin;
   List<Map<String, dynamic>> _unclosedShifts = [];
   String _effectiveCompanyName = '';
 
@@ -1342,6 +1357,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _effectiveCompanyName = widget.companyName;
+    _userRole = widget.userRole ?? 'employee';
+    _isEnterpriseAdmin = widget.isAdmin ??
+        (_userRole == 'enterprise_admin' ||
+            _userRole == 'admin' ||
+            _userRole == 'super_admin');
     _fetchUserRole();
     _fetchEnterpriseDetails();
     _checkUnclosedShifts();
@@ -1359,12 +1379,23 @@ class _HomeScreenState extends State<HomeScreen> {
           .doc(widget.enterpriseId.trim())
           .get();
       if (doc.exists && doc.data() != null && mounted) {
-        final name = doc.data()!['name'] as String? ?? '';
-        if (name.isNotEmpty && name != _effectiveCompanyName) {
-          setState(() {
+        final data = doc.data()!;
+        final name = data['name'] as String? ?? data['companyName'] as String? ?? '';
+        final adminUid = data['adminUid'] as String?;
+        final adminEmail = data['adminEmail'] as String?;
+        final user = AuthService().currentUser;
+        final currentEmail = user?.email?.trim().toLowerCase();
+        final isAdminByEnt = (user != null && adminUid != null && adminUid == user.uid) ||
+            (currentEmail != null && adminEmail != null && adminEmail.trim().toLowerCase() == currentEmail);
+
+        setState(() {
+          if (name.isNotEmpty && name != _effectiveCompanyName) {
             _effectiveCompanyName = name;
-          });
-        }
+          }
+          if (isAdminByEnt && !_isEnterpriseAdmin) {
+            _isEnterpriseAdmin = true;
+          }
+        });
       }
     } catch (_) {}
   }
@@ -1389,6 +1420,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (mounted) {
           setState(() {
             _userRole = 'super_admin';
+            _isEnterpriseAdmin = true;
           });
         }
         return;
@@ -1400,6 +1432,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (saDoc.exists && mounted) {
             setState(() {
               _userRole = 'super_admin';
+              _isEnterpriseAdmin = true;
             });
             return;
           }
@@ -1407,6 +1440,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (saUidDoc.exists && mounted) {
             setState(() {
               _userRole = 'super_admin';
+              _isEnterpriseAdmin = true;
             });
             return;
           }
@@ -1414,9 +1448,13 @@ class _HomeScreenState extends State<HomeScreen> {
         final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
         if (doc.exists && doc.data() != null && mounted) {
           final role = doc.data()!['role'] as String? ?? 'employee';
-          if (role != _userRole) {
+          final isAdminRole = role == 'enterprise_admin' || role == 'admin' || role == 'super_admin';
+          if (role != _userRole || (isAdminRole && !_isEnterpriseAdmin)) {
             setState(() {
               _userRole = role;
+              if (isAdminRole) {
+                _isEnterpriseAdmin = true;
+              }
             });
           }
         }
@@ -1664,7 +1702,7 @@ class _HomeScreenState extends State<HomeScreen> {
             if (_isAdminOrHigher)
               IconButton(
                 icon: const Icon(Icons.assessment_outlined),
-                tooltip: 'Enterprise MIS Reports',
+                tooltip: 'Enterprise Admin & MIS Dashboard',
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -1795,6 +1833,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (_) => const SuperAdminConsoleScreen(),
                   ),
                 );
+              } else if (val == 'admin_dashboard') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => EnterpriseAdminDashboardScreen(enterpriseId: widget.enterpriseId),
+                  ),
+                );
               } else if (val == 'profile') {
                 Navigator.push(
                   context,
@@ -1830,6 +1875,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
+              if (_isAdminOrHigher)
+                const PopupMenuItem(
+                  value: 'admin_dashboard',
+                  child: Row(
+                    children: [
+                      Icon(Icons.assessment_outlined, color: Color(0xFF2563EB), size: 20),
+                      SizedBox(width: 8),
+                      Text('Enterprise Admin & MIS', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
               if (_userRole == 'super_admin')
                 const PopupMenuItem(
                   value: 'super_admin',
@@ -1952,199 +2008,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 18),
                 ],
 
-                // Enterprise Admin Workspace Quick Access Card
-                if (_isAdminOrHigher) ...[
-                  InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => EnterpriseAdminDashboardScreen(enterpriseId: enterpriseId),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFF334155)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF0F172A).withValues(alpha: 0.25),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF2563EB).withValues(alpha: 0.2),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF60A5FA), size: 24),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Text(
-                                          'Enterprise Admin Workspace',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 15,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF10B981).withValues(alpha: 0.2),
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: const Text('ADMIN', style: TextStyle(color: Color(0xFF34D399), fontSize: 10, fontWeight: FontWeight.bold)),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 2),
-                                    const Text(
-                                      'Staff Roster, Approvals, Geofencing & MIS Reports',
-                                      style: TextStyle(color: Colors.white70, fontSize: 11),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF60A5FA), size: 14),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.white,
-                                    side: const BorderSide(color: Color(0xFF475569)),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
-                                  ),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => EnterpriseAdminDashboardScreen(enterpriseId: enterpriseId),
-                                      ),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.dashboard_rounded, size: 16, color: Color(0xFF60A5FA)),
-                                  label: const Text('Open Admin Console', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: FilledButton.icon(
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: const Color(0xFF2563EB),
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
-                                  ),
-                                  onPressed: () => _openKioskMode(enterpriseId),
-                                  icon: const Icon(Icons.camera_front_rounded, size: 16),
-                                  label: const Text('Launch Kiosk', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                ] else ...[
-                  // Controlled Employee Workspace Header Banner
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: context.colors.surfaceContainerHighest.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: context.colors.outlineVariant),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2563EB).withValues(alpha: 0.12),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.badge_outlined, color: Color(0xFF2563EB), size: 18),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Employee Workspace • $displayName',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: context.colors.onSurface,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 1),
-                              Text(
-                                'Controlled Attendance & Leave Self-Service Portal',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: context.colors.onSurfaceVariant,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF10B981).withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Text(
-                            'STAFF',
-                            style: TextStyle(
-                              color: Color(0xFF059669),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                ],
-
                 // Modern Digital Clock Card
                 const ModernDigitalClockCard(),
                 const SizedBox(height: 18),
@@ -2161,6 +2024,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     }
 
                     final data = snapshot.data?.data() as Map<String, dynamic>?;
+                    final role = data?['role'] as String?;
+                    if (role != null && (role == 'enterprise_admin' || role == 'admin' || role == 'super_admin')) {
+                      if (!_isEnterpriseAdmin) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted && !_isEnterpriseAdmin) {
+                            setState(() {
+                              _userRole = role;
+                              _isEnterpriseAdmin = true;
+                            });
+                          }
+                        });
+                      }
+                    }
+
                     final isEnrolled = data?['biometricsEnrolled'] == true;
 
                     if (!isEnrolled) {
