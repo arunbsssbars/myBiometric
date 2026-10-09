@@ -744,11 +744,28 @@ class DatabaseService {
   }
 
   // Unlink an employee/user from their enterprise (Industry standard)
-  Future<void> unlinkUserFromEnterprise(String userId) async {
-    await _db.collection('users').doc(userId.trim()).update({
+  Future<void> unlinkUserFromEnterprise(String userId, [String? enterpriseId]) async {
+    final updates = <String, dynamic>{
       'enterpriseId': FieldValue.delete(),
+      'isStandalone': true,
+      'approvalStatus': 'UNLINKED',
       'updatedAt': FieldValue.serverTimestamp(),
-    });
+    };
+    if (enterpriseId != null && enterpriseId.trim().isNotEmpty) {
+      updates['linkedEnterprises'] = FieldValue.arrayRemove([enterpriseId.trim()]);
+    }
+    await _db.collection('users').doc(userId.trim()).update(updates);
+
+    if (enterpriseId != null && enterpriseId.trim().isNotEmpty) {
+      try {
+        await _db
+            .collection('enterprises')
+            .doc(enterpriseId.trim())
+            .collection('employees')
+            .doc(userId.trim())
+            .delete();
+      } catch (_) {}
+    }
   }
 
   // Update employee allowed verification channels

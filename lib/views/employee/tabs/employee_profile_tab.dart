@@ -453,21 +453,25 @@ class EmployeeProfileTab extends StatelessWidget {
                             return SizedBox(
                               width: double.infinity,
                               child: SegmentedButton<ThemeMode>(
+                                style: SegmentedButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                showSelectedIcon: false,
                                 segments: const [
                                   ButtonSegment<ThemeMode>(
                                     value: ThemeMode.system,
-                                    icon: Icon(Icons.brightness_auto_rounded),
-                                    label: Text('System'),
+                                    icon: Icon(Icons.brightness_auto_rounded, size: 18),
+                                    label: Text('System', style: TextStyle(fontSize: 12), softWrap: false),
                                   ),
                                   ButtonSegment<ThemeMode>(
                                     value: ThemeMode.light,
-                                    icon: Icon(Icons.light_mode_rounded),
-                                    label: Text('Light'),
+                                    icon: Icon(Icons.light_mode_rounded, size: 18),
+                                    label: Text('Light', style: TextStyle(fontSize: 12), softWrap: false),
                                   ),
                                   ButtonSegment<ThemeMode>(
                                     value: ThemeMode.dark,
-                                    icon: Icon(Icons.dark_mode_rounded),
-                                    label: Text('Dark'),
+                                    icon: Icon(Icons.dark_mode_rounded, size: 18),
+                                    label: Text('Dark', style: TextStyle(fontSize: 12), softWrap: false),
                                   ),
                                 ],
                                 selected: {currentMode},

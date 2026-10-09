@@ -279,10 +279,15 @@ class _ShiftSwapManagementScreenState extends State<ShiftSwapManagementScreen>
         ),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(text: 'All Organization Swaps'),
-            Tab(text: 'My Swap Requests'),
-          ],
+          tabs: widget.isManager
+              ? const [
+                  Tab(text: 'Pending Approvals'),
+                  Tab(text: 'All Organization Swaps'),
+                ]
+              : const [
+                  Tab(text: 'Requests for Me'),
+                  Tab(text: 'My Trade Requests'),
+                ],
         ),
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -301,15 +306,23 @@ class _ShiftSwapManagementScreenState extends State<ShiftSwapManagementScreen>
             stream: _swapService.streamEnterpriseSwaps(widget.enterpriseId),
             builder: (context, swapSnap) {
               final swaps = swapSnap.data ?? [];
-              final mySwaps = swaps
-                  .where((s) => s.requesterId == widget.currentUserId || s.targetEmployeeId == widget.currentUserId)
-                  .toList();
+
+              final List<ShiftSwapRequest> tab1Swaps;
+              final List<ShiftSwapRequest> tab2Swaps;
+
+              if (widget.isManager) {
+                tab1Swaps = swaps.where((s) => s.status == ShiftSwapStatus.pendingManager).toList();
+                tab2Swaps = swaps;
+              } else {
+                tab1Swaps = swaps.where((s) => s.targetEmployeeId == widget.currentUserId).toList();
+                tab2Swaps = swaps.where((s) => s.requesterId == widget.currentUserId).toList();
+              }
 
               return TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildSwapList(swaps, roster, isPersonalTab: false),
-                  _buildSwapList(mySwaps, roster, isPersonalTab: true),
+                  _buildSwapList(tab1Swaps, roster, isFirstTab: true),
+                  _buildSwapList(tab2Swaps, roster, isFirstTab: false),
                 ],
               );
             },
@@ -340,9 +353,29 @@ class _ShiftSwapManagementScreenState extends State<ShiftSwapManagementScreen>
   Widget _buildSwapList(
     List<ShiftSwapRequest> swaps,
     List<Map<String, dynamic>> roster, {
-    required bool isPersonalTab,
+    required bool isFirstTab,
   }) {
     if (swaps.isEmpty) {
+      final String emptyTitle;
+      final String emptySubtitle;
+      if (widget.isManager) {
+        if (isFirstTab) {
+          emptyTitle = 'No Pending Manager Approvals';
+          emptySubtitle = 'All peer-accepted shift trades have been evaluated.';
+        } else {
+          emptyTitle = 'No Shift Swaps Logged';
+          emptySubtitle = 'All workforce shift allocations are operating on standard rosters.';
+        }
+      } else {
+        if (isFirstTab) {
+          emptyTitle = 'No Incoming Trade Proposals';
+          emptySubtitle = 'When a colleague requests to trade shifts with you, it will appear here.';
+        } else {
+          emptyTitle = 'No Outgoing Trade Requests';
+          emptySubtitle = 'Tap "Request Trade" below to propose a shift swap with a colleague.';
+        }
+      }
+
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -356,14 +389,12 @@ class _ShiftSwapManagementScreenState extends State<ShiftSwapManagementScreen>
               ),
               const SizedBox(height: 12),
               Text(
-                isPersonalTab ? 'No Personal Shift Swaps' : 'No Shift Swaps Logged',
+                emptyTitle,
                 style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
               Text(
-                isPersonalTab
-                    ? 'You have not requested or received any shift trade proposals.'
-                    : 'All workforce shift allocations are operating on standard rosters.',
+                emptySubtitle,
                 textAlign: TextAlign.center,
                 style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
               ),

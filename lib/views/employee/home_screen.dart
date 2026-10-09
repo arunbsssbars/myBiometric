@@ -10,7 +10,7 @@ import '../../presentation/navigation/auth_wrapper.dart';
 import '../kiosk_mode_screen.dart' as views_kiosk;
 import '../enterprise_admin_dashboard_screen.dart';
 import '../super_admin_console_screen.dart';
-import '../onboarding/join_company_screen.dart';
+import '../workspace/workspace_switcher_sheet.dart';
 import 'tabs/employee_clock_tab.dart';
 import 'tabs/employee_activity_tab.dart';
 import 'tabs/employee_leaves_tab.dart';
@@ -298,17 +298,18 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() => _selectedTab = 1);
         },
       ),
-      AppCommand(
-        id: 'emp_team_presence',
-        title: "Who's In / Who's Out (Team Presence)",
-        subtitle: 'Real-time live team board for who is working or on break',
-        category: 'Team',
-        icon: Icons.group_rounded,
-        keywords: ['team', 'presence', 'who is in', 'whos in', 'status'],
-        onExecute: () {
-          setState(() => _selectedTab = 3);
-        },
-      ),
+      if (enterpriseId.isNotEmpty)
+        AppCommand(
+          id: 'emp_team_presence',
+          title: "Who's In / Who's Out (Team Presence)",
+          subtitle: 'Real-time live team board for who is working or on break',
+          category: 'Team',
+          icon: Icons.group_rounded,
+          keywords: ['team', 'presence', 'who is in', 'whos in', 'status'],
+          onExecute: () {
+            setState(() => _selectedTab = 3);
+          },
+        ),
       if (_userRole == 'super_admin') ...[
         AppCommand(
           id: 'super_admin_console',
@@ -358,17 +359,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openWorkspaceLinkModal() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => JoinCompanyScreen(
-          onJoined: () {
-            Navigator.pop(context);
-            _fetchEnterpriseDetails();
-            _fetchUserRole();
-          },
-        ),
-      ),
+    WorkspaceSwitcherSheet.show(
+      context: context,
+      currentEnterpriseId: widget.enterpriseId,
+      currentCompanyName: _effectiveCompanyName,
+      currentUserRole: _userRole,
+      onWorkspaceChanged: () {
+        _fetchEnterpriseDetails();
+        _fetchUserRole();
+      },
     );
   }
 
@@ -467,85 +466,94 @@ class _HomeScreenState extends State<HomeScreen> {
             ? rawMethods.map((e) => e.toString()).toList()
             : (_isAdminOrHigher ? ['MOBILE_GPS', 'KIOSK_FACE', 'PHONE_BIOMETRICS'] : []);
 
+        final isLinked = widget.enterpriseId.isNotEmpty;
+        final tabs = [
+          EmployeeClockTab(
+            enterpriseId: widget.enterpriseId,
+            companyName: _effectiveCompanyName,
+            userRole: _userRole,
+            isEnterpriseAdmin: _isEnterpriseAdmin,
+            isAdminOrHigher: _isAdminOrHigher,
+            userData: data,
+            allowedMethods: allowedMethods,
+            unclosedShifts: _unclosedShifts,
+            onOpenKiosk: () => _openKioskMode(widget.enterpriseId),
+            onOpenWorkspaceLink: _openWorkspaceLinkModal,
+            onSignOut: () => _confirmSignOut(context),
+            onRefreshShifts: _checkUnclosedShifts,
+            commandBuilder: () => _getEmployeeCommands(allowedMethods),
+          ),
+          EmployeeActivityTab(
+            enterpriseId: widget.enterpriseId,
+            companyName: _effectiveCompanyName,
+            userRole: _userRole,
+            onOpenWorkspaceLink: _openWorkspaceLinkModal,
+          ),
+          EmployeeLeavesTab(
+            enterpriseId: widget.enterpriseId,
+            companyName: _effectiveCompanyName,
+            onOpenWorkspaceLink: _openWorkspaceLinkModal,
+          ),
+          if (isLinked)
+            EmployeeTeamTab(
+              enterpriseId: widget.enterpriseId,
+              onOpenWorkspaceLink: _openWorkspaceLinkModal,
+            ),
+          EmployeeProfileTab(
+            enterpriseId: widget.enterpriseId,
+            companyName: _effectiveCompanyName,
+            userRole: _userRole,
+            isEnterpriseAdmin: _isEnterpriseAdmin,
+            isAdminOrHigher: _isAdminOrHigher,
+            userData: data,
+            allowedMethods: allowedMethods,
+            onOpenWorkspaceLink: _openWorkspaceLinkModal,
+            onSignOut: () => _confirmSignOut(context),
+          ),
+        ];
+
+        final destinations = [
+          const NavigationDestination(
+            icon: Icon(Icons.schedule_outlined),
+            selectedIcon: Icon(Icons.access_time_filled_rounded),
+            label: 'Clock',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.event_note_outlined),
+            selectedIcon: Icon(Icons.event_note_rounded),
+            label: 'Activity',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.beach_access_outlined),
+            selectedIcon: Icon(Icons.beach_access_rounded),
+            label: 'Time-Off',
+          ),
+          if (isLinked)
+            const NavigationDestination(
+              icon: Icon(Icons.group_outlined),
+              selectedIcon: Icon(Icons.group_rounded),
+              label: 'Team',
+            ),
+          const NavigationDestination(
+            icon: Icon(Icons.person_outline_rounded),
+            selectedIcon: Icon(Icons.person_rounded),
+            label: 'Profile',
+          ),
+        ];
+
+        final activeTabIndex = _selectedTab.clamp(0, tabs.length - 1);
+
         return UniversalCommandPaletteHotKey(
           commandBuilder: () => _getEmployeeCommands(allowedMethods),
           child: Scaffold(
             body: IndexedStack(
-              index: _selectedTab,
-              children: [
-                EmployeeClockTab(
-                  enterpriseId: widget.enterpriseId,
-                  companyName: _effectiveCompanyName,
-                  userRole: _userRole,
-                  isEnterpriseAdmin: _isEnterpriseAdmin,
-                  isAdminOrHigher: _isAdminOrHigher,
-                  userData: data,
-                  allowedMethods: allowedMethods,
-                  unclosedShifts: _unclosedShifts,
-                  onOpenKiosk: () => _openKioskMode(widget.enterpriseId),
-                  onOpenWorkspaceLink: _openWorkspaceLinkModal,
-                  onSignOut: () => _confirmSignOut(context),
-                  onRefreshShifts: _checkUnclosedShifts,
-                  commandBuilder: () => _getEmployeeCommands(allowedMethods),
-                ),
-                EmployeeActivityTab(
-                  enterpriseId: widget.enterpriseId,
-                  companyName: _effectiveCompanyName,
-                  userRole: _userRole,
-                  onOpenWorkspaceLink: _openWorkspaceLinkModal,
-                ),
-                EmployeeLeavesTab(
-                  enterpriseId: widget.enterpriseId,
-                  companyName: _effectiveCompanyName,
-                  onOpenWorkspaceLink: _openWorkspaceLinkModal,
-                ),
-                EmployeeTeamTab(
-                  enterpriseId: widget.enterpriseId,
-                  onOpenWorkspaceLink: _openWorkspaceLinkModal,
-                ),
-                EmployeeProfileTab(
-                  enterpriseId: widget.enterpriseId,
-                  companyName: _effectiveCompanyName,
-                  userRole: _userRole,
-                  isEnterpriseAdmin: _isEnterpriseAdmin,
-                  isAdminOrHigher: _isAdminOrHigher,
-                  userData: data,
-                  allowedMethods: allowedMethods,
-                  onOpenWorkspaceLink: _openWorkspaceLinkModal,
-                  onSignOut: () => _confirmSignOut(context),
-                ),
-              ],
+              index: activeTabIndex,
+              children: tabs,
             ),
             bottomNavigationBar: NavigationBar(
-              selectedIndex: _selectedTab,
+              selectedIndex: activeTabIndex,
               onDestinationSelected: (idx) => setState(() => _selectedTab = idx),
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.schedule_outlined),
-                  selectedIcon: Icon(Icons.access_time_filled_rounded),
-                  label: 'Clock',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.event_note_outlined),
-                  selectedIcon: Icon(Icons.event_note_rounded),
-                  label: 'Activity',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.beach_access_outlined),
-                  selectedIcon: Icon(Icons.beach_access_rounded),
-                  label: 'Time-Off',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.group_outlined),
-                  selectedIcon: Icon(Icons.group_rounded),
-                  label: 'Team',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.person_outline_rounded),
-                  selectedIcon: Icon(Icons.person_rounded),
-                  label: 'Profile',
-                ),
-              ],
+              destinations: destinations,
             ),
           ),
         );

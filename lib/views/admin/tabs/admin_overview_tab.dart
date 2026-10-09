@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../domain/models/leave_request.dart';
 import '../../../services/audit_log_service.dart';
-import '../../../services/executive_command_center_service.dart';
 import '../../../services/leave_service.dart';
 import '../../../services/offline_attendance_queue_service.dart';
 import '../../../services/payroll_export_service.dart';
@@ -49,6 +48,8 @@ class AdminOverviewTab extends StatefulWidget {
 }
 
 class _AdminOverviewTabState extends State<AdminOverviewTab> {
+  String _overviewSubTab = 'PULSE';
+
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
@@ -132,538 +133,581 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
 
-          // Shift Intelligence Compliance Banner
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-            decoration: BoxDecoration(
-              color: context.colors.surface,
-              borderRadius: BorderRadius.circular(AppRadius.lg),
-              border: Border.all(color: context.colors.borderSubtle),
-              boxShadow: [
-                BoxShadow(
-                  color: context.colors.shadow.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+          // Overview Sub-Tabs to Offload Visual Clutter
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<String>(
+              showSelectedIcon: false,
+              style: const ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              segments: const [
+                ButtonSegment<String>(
+                  value: 'PULSE',
+                  label: Text('Pulse', overflow: TextOverflow.ellipsis),
+                  icon: Icon(Icons.insights_rounded, size: 16),
+                ),
+                ButtonSegment<String>(
+                  value: 'PRESENCE',
+                  label: Text('Presence', overflow: TextOverflow.ellipsis),
+                  icon: Icon(Icons.groups_rounded, size: 16),
+                ),
+                ButtonSegment<String>(
+                  value: 'OPERATIONS',
+                  label: Text('Operations', overflow: TextOverflow.ellipsis),
+                  icon: Icon(Icons.hub_rounded, size: 16),
                 ),
               ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'On-Time Arrival',
-                        style: context.textStyles.bodySmall?.copyWith(color: context.colors.textSecondary, fontWeight: FontWeight.w500),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          '$onTimeRate%',
-                          style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: context.status.success.color),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(height: 32, width: 1, color: context.colors.borderSubtle),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Late Arrivals',
-                          style: context.textStyles.bodySmall?.copyWith(color: context.colors.textSecondary, fontWeight: FontWeight.w500),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            '$lateCount',
-                            style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: lateCount > 0 ? context.status.warning.color : context.colors.textPrimary),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Container(height: 32, width: 1, color: context.colors.borderSubtle),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Overtime Today',
-                          style: context.textStyles.bodySmall?.copyWith(color: context.colors.textSecondary, fontWeight: FontWeight.w500),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            '${otHoursStr}h',
-                            style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: context.colors.tertiary),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Live Workforce Board
-          WhosInWhosOutBoard(
-            enterpriseId: widget.enterpriseId,
-          ),
-          const SizedBox(height: 16),
-
-          // Daily Attendance & Absenteeism Reconciler
-          StreamBuilder<List<LeaveRequest>>(
-            stream: LeaveService().getEnterpriseLeaveRequests(widget.enterpriseId),
-            builder: (context, leaveSnap) {
-              final leaveList = leaveSnap.data ?? [];
-              final activeLeaveMap = <String, LeaveRequest>{};
-              for (var l in leaveList) {
-                if (l.status == 'APPROVED') {
-                  final start = DateTime(l.startDate.year, l.startDate.month, l.startDate.day);
-                  final end = DateTime(l.endDate.year, l.endDate.month, l.endDate.day, 23, 59, 59);
-                  if (now.isAfter(start.subtract(const Duration(seconds: 1))) &&
-                      now.isBefore(end.add(const Duration(seconds: 1)))) {
-                    activeLeaveMap[l.userId] = l;
-                  }
+              selected: {_overviewSubTab},
+              onSelectionChanged: (set) {
+                if (set.isNotEmpty) {
+                  setState(() => _overviewSubTab = set.first);
                 }
-              }
-
-              final presentStaff = widget.staff.where((s) => presentUserIds.contains(s.id)).toList();
-              final lateStaff = widget.staff.where((s) => lateUserIds.contains(s.id)).toList();
-              final onLeaveStaff = widget.staff.where((s) => !presentUserIds.contains(s.id) && activeLeaveMap.containsKey(s.id)).toList();
-              final absentStaff = widget.staff.where((s) => !presentUserIds.contains(s.id) && !activeLeaveMap.containsKey(s.id)).toList();
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          "Today's Workforce Digest",
-                          style: context.textStyles.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: context.colors.textPrimary,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.xs),
-                      TextButton.icon(
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          visualDensity: VisualDensity.compact,
-                          backgroundColor: context.colors.primary.withValues(alpha: 0.1),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
-                        ),
-                        onPressed: widget.isReconciling ? null : widget.onRunDailyReconciliation,
-                        icon: widget.isReconciling
-                            ? SizedBox(
-                                width: 13,
-                                height: 13,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: context.colors.primary),
-                              )
-                            : Icon(Icons.fact_check_outlined, size: 15, color: context.colors.primary),
-                        label: Text(
-                          widget.isReconciling ? 'Reconciling...' : 'Reconcile Now',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: context.colors.primary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-
-                  // 4 Reconciled Status Cards (Present, Late, Absent, On Leave)
-                  GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: MediaQuery.sizeOf(context).width < 360 || MediaQuery.textScalerOf(context).scale(1.0) > 1.2 ? 0.95 : 1.08,
-                    children: [
-                      _buildStatCard(
-                        title: 'Present Today',
-                        value: '${presentStaff.length}',
-                        subtitle: 'Punched In',
-                        icon: Icons.check_circle_outline,
-                        color: context.status.success.color,
-                        onTap: () => _showAttendanceBreakdownSheet(
-                          title: 'Present Staff (${presentStaff.length})',
-                          category: 'PRESENT',
-                          categoryColor: context.status.success.color,
-                          staffList: presentStaff,
-                          todayLogs: todayLogs,
-                          activeLeaveMap: activeLeaveMap,
-                          allStaff: widget.staff,
-                        ),
-                      ),
-                      _buildStatCard(
-                        title: 'Late Arrivals',
-                        value: '${lateStaff.length}',
-                        subtitle: 'After Shift Start',
-                        icon: Icons.access_time_filled,
-                        color: context.status.warning.color,
-                        onTap: () => _showAttendanceBreakdownSheet(
-                          title: 'Late Arrivals (${lateStaff.length})',
-                          category: 'LATE',
-                          categoryColor: context.status.warning.color,
-                          staffList: lateStaff,
-                          todayLogs: todayLogs,
-                          activeLeaveMap: activeLeaveMap,
-                          allStaff: widget.staff,
-                        ),
-                      ),
-                      _buildStatCard(
-                        title: 'Absent / Pending',
-                        value: '${absentStaff.length}',
-                        subtitle: 'Not Clocked In',
-                        icon: Icons.cancel_outlined,
-                        color: context.status.danger.color,
-                        onTap: () => _showAttendanceBreakdownSheet(
-                          title: 'Absent / Pending Staff (${absentStaff.length})',
-                          category: 'ABSENT',
-                          categoryColor: context.status.danger.color,
-                          staffList: absentStaff,
-                          todayLogs: todayLogs,
-                          activeLeaveMap: activeLeaveMap,
-                          allStaff: widget.staff,
-                        ),
-                      ),
-                      _buildStatCard(
-                        title: 'On Approved Leave',
-                        value: '${onLeaveStaff.length}',
-                        subtitle: 'Time-Off Active',
-                        icon: Icons.beach_access,
-                        color: context.colors.primary,
-                        onTap: () => _showAttendanceBreakdownSheet(
-                          title: 'Staff On Leave (${onLeaveStaff.length})',
-                          category: 'ON_LEAVE',
-                          categoryColor: context.colors.primary,
-                          staffList: onLeaveStaff,
-                          todayLogs: todayLogs,
-                          activeLeaveMap: activeLeaveMap,
-                          allStaff: widget.staff,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            },
+              },
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
 
-          // Offline Punch Queue Sync Health Card
-          _buildSyncHealthCard(),
-
-          const SizedBox(height: AppSpacing.sm),
-
-          // Punch volume row
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: context.colors.surface,
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    border: Border.all(color: context.colors.borderSubtle),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.login_rounded, color: context.status.success.color, size: 20),
-                      const SizedBox(width: AppSpacing.xs),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Clock-In Events', style: context.textStyles.bodySmall?.copyWith(color: context.colors.textSecondary)),
-                            Text('$punchInCount punches', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold, color: context.colors.textPrimary)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: context.colors.surface,
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    border: Border.all(color: context.colors.borderSubtle),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.sync_alt, color: context.colors.secondary, size: 20),
-                      const SizedBox(width: AppSpacing.xs),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Total Punches', style: context.textStyles.bodySmall?.copyWith(color: context.colors.textSecondary)),
-                            Text('${punchInCount + punchOutCount} events', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold, color: context.colors.textPrimary)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          // Enterprise Policies & Security Hub Card
-          Container(
-            margin: const EdgeInsets.only(top: AppSpacing.md),
-            decoration: BoxDecoration(
-              color: context.colors.surface,
-              borderRadius: BorderRadius.circular(AppRadius.lg),
-              border: Border.all(color: context.colors.borderSubtle),
-              boxShadow: [
-                BoxShadow(
-                  color: context.colors.shadow.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => EnterprisePoliciesHubScreen(
-                        enterpriseId: widget.enterpriseId,
-                      ),
-                    ),
-                  );
-                },
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: context.colors.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                          border: Border.all(color: context.colors.primary.withValues(alpha: 0.2)),
-                        ),
-                        child: Icon(Icons.admin_panel_settings_rounded, color: context.colors.primary, size: 24),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Enterprise Policies & Security Hub',
-                              style: context.textStyles.titleSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: context.colors.textPrimary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              'Geofencing, Wi-Fi Verification, Shifts & PIN Security',
-                              style: context.textStyles.bodySmall?.copyWith(color: context.colors.textSecondary),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.xs),
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: context.colors.surfaceContainerLowest,
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                          border: Border.all(color: context.colors.borderSubtle),
-                        ),
-                        child: Icon(Icons.arrow_forward_ios_rounded, size: 13, color: context.colors.textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: AppSpacing.md),
-
-          // Executive Quick Actions Grid
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: MediaQuery.sizeOf(context).width < 360 || MediaQuery.textScalerOf(context).scale(1.0) > 1.2 ? 1.75 : 2.2,
-            children: [
-              _buildQuickActionCard(
-                icon: Icons.person_add_alt_1_rounded,
-                iconColor: context.colors.primary,
-                bgColor: context.colors.primary.withValues(alpha: 0.1),
-                title: 'Add Staff',
-                subtitle: 'Onboard employee',
-                onTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AddStaffScreen(
-                        enterpriseId: widget.enterpriseId,
-                        companyName: widget.companyName,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              _buildQuickActionCard(
-                icon: Icons.bar_chart_rounded,
-                iconColor: context.colors.secondary,
-                bgColor: context.colors.secondary.withValues(alpha: 0.1),
-                title: 'Analytics',
-                subtitle: 'Visual MIS graphs',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AttendanceAnalyticsView(
-                        enterpriseId: widget.enterpriseId,
-                        companyName: widget.companyName,
-                        logs: widget.logs,
-                        staff: widget.staff,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              _buildQuickActionCard(
-                icon: Icons.table_chart_rounded,
-                iconColor: context.status.success.color,
-                bgColor: context.status.success.color.withValues(alpha: 0.1),
-                title: 'Payroll Export',
-                subtitle: 'CSV & hours MIS',
-                onTap: () {
-                  PayrollExportService.showExportDialog(
-                    context,
-                    logs: widget.logs,
-                    staff: widget.staff,
-                    periodTitle: widget.companyName.isNotEmpty ? widget.companyName : widget.enterpriseId,
-                    enterpriseId: widget.enterpriseId,
-                  );
-                },
-              ),
-              _buildQuickActionCard(
-                icon: Icons.security_rounded,
-                iconColor: context.colors.tertiary,
-                bgColor: context.colors.tertiary.withValues(alpha: 0.1),
-                title: 'Audit Trail',
-                subtitle: 'Compliance logs',
-                onTap: _showAuditTrailSheet,
-              ),
-              _buildQuickActionCard(
-                icon: Icons.speed_rounded,
-                iconColor: Colors.deepPurple,
-                bgColor: Colors.deepPurple.withValues(alpha: 0.1),
-                title: 'Fleet Cockpit',
-                subtitle: 'Real-time KPIs',
-                onTap: () {
-                  final metrics = ExecutiveCommandCenterService().synthesizeMetrics(
-                    enterpriseId: widget.enterpriseId,
-                    totalTerminals: 10,
-                    onlineTerminals: 10,
-                    totalEmployees: widget.staff.length,
-                    onSiteEmployees: todayLogs.where((l) => (l.data() as Map<String, dynamic>?)?['type'] == 'PUNCH_IN').length,
-                    punchesLastHour: todayLogs.length,
-                    pendingRegularizations: 0,
-                    tamperAlerts: 0,
-                  );
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ExecutiveCommandCenterScreen(
-                        metrics: metrics,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            "Recent Enterprise Activity",
-            style: context.textStyles.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: context.colors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-
-          if (todayLogs.isEmpty)
+          // Sub-Tab 1: PULSE (Daily Metrics, Reconciler, Volumes & Activity)
+          if (_overviewSubTab == 'PULSE') ...[
+            // Shift Intelligence Compliance Banner
             Container(
-              padding: const EdgeInsets.all(28),
-              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
               decoration: BoxDecoration(
                 color: context.colors.surface,
                 borderRadius: BorderRadius.circular(AppRadius.lg),
                 border: Border.all(color: context.colors.borderSubtle),
+                boxShadow: [
+                  BoxShadow(
+                    color: context.colors.shadow.withValues(alpha: 0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              child: Text(
-                'No attendance punches recorded yet today.',
-                style: context.textStyles.bodyMedium?.copyWith(color: context.colors.textSecondary),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'On-Time Arrival',
+                          style: context.textStyles.bodySmall?.copyWith(color: context.colors.textSecondary, fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '$onTimeRate%',
+                            style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: context.status.success.color),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(height: 32, width: 1, color: context.colors.borderSubtle),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Late Arrivals',
+                            style: context.textStyles.bodySmall?.copyWith(color: context.colors.textSecondary, fontWeight: FontWeight.w500),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '$lateCount',
+                              style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: lateCount > 0 ? context.status.warning.color : context.colors.textPrimary),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Container(height: 32, width: 1, color: context.colors.borderSubtle),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Overtime Today',
+                            style: context.textStyles.bodySmall?.copyWith(color: context.colors.textSecondary, fontWeight: FontWeight.w500),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '${otHoursStr}h',
+                              style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: context.colors.tertiary),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            )
-          else
-            ListView.builder(
+            ),
+            const SizedBox(height: 16),
+
+            _buildWorkforceDigestSection(context, now, todayLogs, presentUserIds, lateUserIds),
+            const SizedBox(height: AppSpacing.md),
+
+            // Offline Punch Queue Sync Health Card
+            _buildSyncHealthCard(),
+            const SizedBox(height: AppSpacing.sm),
+
+            // Punch volume row
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: context.colors.surface,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(color: context.colors.borderSubtle),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.login_rounded, color: context.status.success.color, size: 20),
+                        const SizedBox(width: AppSpacing.xs),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Clock-In Events', style: context.textStyles.bodySmall?.copyWith(color: context.colors.textSecondary)),
+                              Text('$punchInCount punches', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold, color: context.colors.textPrimary)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: context.colors.surface,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(color: context.colors.borderSubtle),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.sync_alt, color: context.colors.secondary, size: 20),
+                        const SizedBox(width: AppSpacing.xs),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Total Punches', style: context.textStyles.bodySmall?.copyWith(color: context.colors.textSecondary)),
+                              Text('${punchInCount + punchOutCount} events', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold, color: context.colors.textPrimary)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+
+            Text(
+              "Recent Enterprise Activity",
+              style: context.textStyles.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: context.colors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+
+            if (todayLogs.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(28),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: context.colors.surface,
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  border: Border.all(color: context.colors.borderSubtle),
+                ),
+                child: Text(
+                  'No attendance punches recorded yet today.',
+                  style: context.textStyles.bodyMedium?.copyWith(color: context.colors.textSecondary),
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: todayLogs.take(5).length,
+                itemBuilder: (context, index) {
+                  final doc = todayLogs[index];
+                  return _buildRecentLogTile(doc, widget.staff);
+                },
+              ),
+          ],
+
+          // Sub-Tab 2: PRESENCE (Live Who's In / Out Board & Reconciled Drilldown)
+          if (_overviewSubTab == 'PRESENCE') ...[
+            WhosInWhosOutBoard(
+              enterpriseId: widget.enterpriseId,
+            ),
+            const SizedBox(height: 16),
+            _buildWorkforceDigestSection(context, now, todayLogs, presentUserIds, lateUserIds),
+          ],
+
+          // Sub-Tab 3: OPERATIONS (Policies & Security Hub, Quick Actions Grid, Fleet Cockpit)
+          if (_overviewSubTab == 'OPERATIONS') ...[
+            // Enterprise Policies & Security Hub Card
+            Container(
+              decoration: BoxDecoration(
+                color: context.colors.surface,
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                border: Border.all(color: context.colors.borderSubtle),
+                boxShadow: [
+                  BoxShadow(
+                    color: context.colors.shadow.withValues(alpha: 0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EnterprisePoliciesHubScreen(
+                          enterpriseId: widget.enterpriseId,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: context.colors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            border: Border.all(color: context.colors.primary.withValues(alpha: 0.2)),
+                          ),
+                          child: Icon(Icons.admin_panel_settings_rounded, color: context.colors.primary, size: 24),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Enterprise Policies & Security Hub',
+                                style: context.textStyles.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: context.colors.textPrimary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                'Geofencing, Wi-Fi Verification, Shifts & PIN Security',
+                                style: context.textStyles.bodySmall?.copyWith(color: context.colors.textSecondary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: context.colors.surfaceContainerLowest,
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            border: Border.all(color: context.colors.borderSubtle),
+                          ),
+                          child: Icon(Icons.arrow_forward_ios_rounded, size: 13, color: context.colors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+
+            // Executive Quick Actions Grid
+            GridView.count(
+              crossAxisCount: 2,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: todayLogs.take(5).length,
-              itemBuilder: (context, index) {
-                final doc = todayLogs[index];
-                return _buildRecentLogTile(doc, widget.staff);
-              },
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: MediaQuery.sizeOf(context).width < 360 || MediaQuery.textScalerOf(context).scale(1.0) > 1.2 ? 1.75 : 2.2,
+              children: [
+                _buildQuickActionCard(
+                  icon: Icons.person_add_alt_1_rounded,
+                  iconColor: context.colors.primary,
+                  bgColor: context.colors.primary.withValues(alpha: 0.1),
+                  title: 'Add Staff',
+                  subtitle: 'Onboard employee',
+                  onTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AddStaffScreen(
+                          enterpriseId: widget.enterpriseId,
+                          companyName: widget.companyName,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                _buildQuickActionCard(
+                  icon: Icons.bar_chart_rounded,
+                  iconColor: context.colors.secondary,
+                  bgColor: context.colors.secondary.withValues(alpha: 0.1),
+                  title: 'Analytics',
+                  subtitle: 'Visual MIS graphs',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AttendanceAnalyticsView(
+                          enterpriseId: widget.enterpriseId,
+                          companyName: widget.companyName,
+                          logs: widget.logs,
+                          staff: widget.staff,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                _buildQuickActionCard(
+                  icon: Icons.table_chart_rounded,
+                  iconColor: context.status.success.color,
+                  bgColor: context.status.success.color.withValues(alpha: 0.1),
+                  title: 'Payroll Export',
+                  subtitle: 'CSV & hours MIS',
+                  onTap: () {
+                    PayrollExportService.showExportDialog(
+                      context,
+                      logs: widget.logs,
+                      staff: widget.staff,
+                      periodTitle: widget.companyName.isNotEmpty ? widget.companyName : widget.enterpriseId,
+                      enterpriseId: widget.enterpriseId,
+                    );
+                  },
+                ),
+                _buildQuickActionCard(
+                  icon: Icons.security_rounded,
+                  iconColor: context.colors.tertiary,
+                  bgColor: context.colors.tertiary.withValues(alpha: 0.1),
+                  title: 'Audit Trail',
+                  subtitle: 'Compliance logs',
+                  onTap: _showAuditTrailSheet,
+                ),
+                _buildQuickActionCard(
+                  icon: Icons.speed_rounded,
+                  iconColor: Colors.deepPurple,
+                  bgColor: Colors.deepPurple.withValues(alpha: 0.1),
+                  title: 'Fleet Cockpit',
+                  subtitle: 'Real-time KPIs',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ExecutiveCommandCenterScreen(
+                          enterpriseId: widget.enterpriseId,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
+            const SizedBox(height: AppSpacing.md),
+            _buildSyncHealthCard(),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildWorkforceDigestSection(
+    BuildContext context,
+    DateTime now,
+    List<QueryDocumentSnapshot> todayLogs,
+    Set<String> presentUserIds,
+    Set<String> lateUserIds,
+  ) {
+    return StreamBuilder<List<LeaveRequest>>(
+      stream: LeaveService().getEnterpriseLeaveRequests(widget.enterpriseId),
+      builder: (context, leaveSnap) {
+        final leaveList = leaveSnap.data ?? [];
+        final activeLeaveMap = <String, LeaveRequest>{};
+        for (var l in leaveList) {
+          if (l.status == 'APPROVED') {
+            final start = DateTime(l.startDate.year, l.startDate.month, l.startDate.day);
+            final end = DateTime(l.endDate.year, l.endDate.month, l.endDate.day, 23, 59, 59);
+            if (now.isAfter(start.subtract(const Duration(seconds: 1))) &&
+                now.isBefore(end.add(const Duration(seconds: 1)))) {
+              activeLeaveMap[l.userId] = l;
+            }
+          }
+        }
+
+        final presentStaff = widget.staff.where((s) => presentUserIds.contains(s.id)).toList();
+        final lateStaff = widget.staff.where((s) => lateUserIds.contains(s.id)).toList();
+        final onLeaveStaff = widget.staff.where((s) => !presentUserIds.contains(s.id) && activeLeaveMap.containsKey(s.id)).toList();
+        final absentStaff = widget.staff.where((s) => !presentUserIds.contains(s.id) && !activeLeaveMap.containsKey(s.id)).toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    "Today's Workforce Digest",
+                    style: context.textStyles.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: context.colors.textPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor: context.colors.primary.withValues(alpha: 0.1),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
+                  ),
+                  onPressed: widget.isReconciling ? null : widget.onRunDailyReconciliation,
+                  icon: widget.isReconciling
+                      ? SizedBox(
+                          width: 13,
+                          height: 13,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: context.colors.primary),
+                        )
+                      : Icon(Icons.fact_check_outlined, size: 15, color: context.colors.primary),
+                  label: Text(
+                    widget.isReconciling ? 'Reconciling...' : 'Reconcile Now',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: context.colors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+
+            // 4 Reconciled Status Cards (Present, Late, Absent, On Leave)
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: MediaQuery.sizeOf(context).width < 360 || MediaQuery.textScalerOf(context).scale(1.0) > 1.2 ? 0.95 : 1.08,
+              children: [
+                _buildStatCard(
+                  title: 'Present Today',
+                  value: '${presentStaff.length}',
+                  subtitle: 'Punched In',
+                  icon: Icons.check_circle_outline,
+                  color: context.status.success.color,
+                  onTap: () => _showAttendanceBreakdownSheet(
+                    title: 'Present Staff (${presentStaff.length})',
+                    category: 'PRESENT',
+                    categoryColor: context.status.success.color,
+                    staffList: presentStaff,
+                    todayLogs: todayLogs,
+                    activeLeaveMap: activeLeaveMap,
+                    allStaff: widget.staff,
+                  ),
+                ),
+                _buildStatCard(
+                  title: 'Late Arrivals',
+                  value: '${lateStaff.length}',
+                  subtitle: 'After Shift Start',
+                  icon: Icons.access_time_filled,
+                  color: context.status.warning.color,
+                  onTap: () => _showAttendanceBreakdownSheet(
+                    title: 'Late Arrivals (${lateStaff.length})',
+                    category: 'LATE',
+                    categoryColor: context.status.warning.color,
+                    staffList: lateStaff,
+                    todayLogs: todayLogs,
+                    activeLeaveMap: activeLeaveMap,
+                    allStaff: widget.staff,
+                  ),
+                ),
+                _buildStatCard(
+                  title: 'Absent / Pending',
+                  value: '${absentStaff.length}',
+                  subtitle: 'Not Clocked In',
+                  icon: Icons.cancel_outlined,
+                  color: context.status.danger.color,
+                  onTap: () => _showAttendanceBreakdownSheet(
+                    title: 'Absent / Pending Staff (${absentStaff.length})',
+                    category: 'ABSENT',
+                    categoryColor: context.status.danger.color,
+                    staffList: absentStaff,
+                    todayLogs: todayLogs,
+                    activeLeaveMap: activeLeaveMap,
+                    allStaff: widget.staff,
+                  ),
+                ),
+                _buildStatCard(
+                  title: 'On Approved Leave',
+                  value: '${onLeaveStaff.length}',
+                  subtitle: 'Time-Off Active',
+                  icon: Icons.beach_access,
+                  color: context.colors.primary,
+                  onTap: () => _showAttendanceBreakdownSheet(
+                    title: 'Staff On Leave (${onLeaveStaff.length})',
+                    category: 'ON_LEAVE',
+                    categoryColor: context.colors.primary,
+                    staffList: onLeaveStaff,
+                    todayLogs: todayLogs,
+                    activeLeaveMap: activeLeaveMap,
+                    allStaff: widget.staff,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1231,24 +1275,32 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            Icon(Icons.security_update_good_outlined, color: sheetCtx.colors.primary, size: 22),
-                            const SizedBox(width: 8),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Compliance Audit Trail',
-                                  style: sheetCtx.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: sheetCtx.colors.textPrimary),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Icon(Icons.security_update_good_outlined, color: sheetCtx.colors.primary, size: 22),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Compliance Audit Trail',
+                                      style: sheetCtx.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: sheetCtx.colors.textPrimary),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      'Immutable log of administrative events',
+                                      style: sheetCtx.textStyles.bodySmall?.copyWith(color: sheetCtx.colors.textSecondary),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
                                 ),
-                                Text(
-                                  'Immutable log of administrative events',
-                                  style: sheetCtx.textStyles.bodySmall?.copyWith(color: sheetCtx.colors.textSecondary),
-                                ),
-                              ],
-                            ),
-                          ],
+                              ),
+                            ],
+                          ),
                         ),
                         IconButton(
                           icon: Icon(Icons.close, color: sheetCtx.colors.textSecondary),
@@ -1384,23 +1436,32 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
                                         Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: catColor.withValues(alpha: 0.1),
-                                                borderRadius: AppRadius.badgeCircular,
-                                              ),
-                                              child: Text(
-                                                action.replaceAll('_', ' '),
-                                                style: TextStyle(
-                                                  color: catColor,
-                                                  fontWeight: FontWeight.bold,
+                                            Expanded(
+                                              child: Align(
+                                                alignment: Alignment.centerLeft,
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                  decoration: BoxDecoration(
+                                                    color: catColor.withValues(alpha: 0.1),
+                                                    borderRadius: AppRadius.badgeCircular,
+                                                  ),
+                                                  child: Text(
+                                                    action.replaceAll('_', ' '),
+                                                    style: TextStyle(
+                                                      color: catColor,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
                                                 ),
                                               ),
                                             ),
+                                            const SizedBox(width: 8),
                                             Text(
                                               timeStr,
                                               style: sheetCtx.textStyles.bodySmall?.copyWith(color: sheetCtx.colors.textSecondary),
+                                              maxLines: 1,
                                             ),
                                           ],
                                         ),

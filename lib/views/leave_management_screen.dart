@@ -4,6 +4,7 @@ import '../core/design_system/design_system.dart';
 import '../domain/models/leave_request.dart';
 import '../services/auth_service.dart';
 import '../services/leave_service.dart';
+import 'shift_swap_management_screen.dart';
 
 /// Comprehensive Leave & Time-Off Management Screen.
 ///
@@ -258,18 +259,18 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
         ),
         actions: [
           IconButton(
-            icon: Icon(
-              Theme.of(context).brightness == Brightness.dark
-                  ? Icons.light_mode_rounded
-                  : Icons.dark_mode_rounded,
-            ),
-            tooltip: Theme.of(context).brightness == Brightness.dark
-                ? 'Switch to Light Mode'
-                : 'Switch to Dark Mode',
+            icon: const Icon(Icons.swap_horiz_rounded),
+            tooltip: 'Shift Trades & Swaps',
             onPressed: () {
-              final isDark = Theme.of(context).brightness == Brightness.dark;
-              AppThemeNotifier.instance.setThemeMode(
-                isDark ? ThemeMode.light : ThemeMode.dark,
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ShiftSwapManagementScreen(
+                    enterpriseId: widget.enterpriseId,
+                    currentUserId: user.uid,
+                    isManager: false,
+                  ),
+                ),
               );
             },
           ),
@@ -351,6 +352,30 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                             _buildStatColumn(context, 'Pending', '$pendingCount'),
                             _buildStatColumn(context, 'Approved', '$approvedCount'),
                           ],
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
+                            ),
+                            icon: const Icon(Icons.swap_horiz_rounded, size: 16),
+                            label: const Text('Peer Shift Trades & Swaps'),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ShiftSwapManagementScreen(
+                                    enterpriseId: widget.enterpriseId,
+                                    currentUserId: user.uid,
+                                    isManager: false,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ],
                     ),

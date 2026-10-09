@@ -135,8 +135,13 @@ class _UserStateRouterState extends State<UserStateRouter> {
           } catch (_) {}
         }
 
-        // 2. If non-super admin has no enterprise assigned, check if they are the admin of any enterprise
-        if ((eId == null || eId.isEmpty) && userEmail != null && userEmail.isNotEmpty) {
+        final userDataRaw = doc.data() ?? {};
+        final bool isExplicitStandalone = userDataRaw['isStandalone'] == true ||
+            userDataRaw['approvalStatus'] == 'UNLINKED' ||
+            userDataRaw['approvalStatus'] == 'STANDALONE';
+
+        // 2. If non-super admin has no enterprise assigned and not standalone, check if they are the admin of any enterprise
+        if (!isExplicitStandalone && (eId == null || eId.isEmpty) && userEmail != null && userEmail.isNotEmpty) {
           try {
             final adminEnts = await FirebaseFirestore.instance
                 .collection('enterprises')
@@ -264,7 +269,11 @@ class _UserStateRouterState extends State<UserStateRouter> {
 
         // 4. Check if user is in Standalone Mode
         final userData = doc.data() ?? {};
-        if ((eId == null || eId.isEmpty) && userData['isStandalone'] == true && !isAuthorizedSuperAdmin) {
+        if ((eId == null || eId.isEmpty) &&
+            (userData['isStandalone'] == true ||
+             userData['approvalStatus'] == 'UNLINKED' ||
+             userData['approvalStatus'] == 'STANDALONE') &&
+            !isAuthorizedSuperAdmin) {
           if (mounted) {
             setState(() {
               _hasEnterprise = false;

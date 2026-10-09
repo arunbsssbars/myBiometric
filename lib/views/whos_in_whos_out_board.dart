@@ -387,11 +387,23 @@ class _WhosInWhosOutBoardState extends State<WhosInWhosOutBoard> {
               Icon(Icons.people_outline_rounded, size: AppSizes.iconSm, color: colors.onSurfaceVariant),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
-                child: Text(
-                  'Workforce presence • ${c.inOffice} / ${c.total} in office',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Workforce Presence',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    Text(
+                      '${c.inOffice} / ${c.total} on-site today',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),

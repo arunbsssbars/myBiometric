@@ -14,7 +14,6 @@ import 'shift_swap_management_screen.dart';
 import 'external_terminal_management_screen.dart';
 import 'terminal_punch_injection_screen.dart';
 import 'executive_command_center_screen.dart';
-import '../services/executive_command_center_service.dart';
 import '../services/auth_service.dart';
 
 /// Unified Enterprise Policies & Configuration Hub.
@@ -448,21 +447,11 @@ class EnterprisePoliciesHubScreen extends StatelessWidget {
                 badgeColor: colors.primary,
                 badgeBg: colors.primaryContainer.withValues(alpha: 0.4),
                 onTap: () {
-                  final metrics = ExecutiveCommandCenterService().synthesizeMetrics(
-                    enterpriseId: enterpriseId,
-                    totalTerminals: 10,
-                    onlineTerminals: 10,
-                    totalEmployees: 50,
-                    onSiteEmployees: 32,
-                    punchesLastHour: 28,
-                    pendingRegularizations: 1,
-                    tamperAlerts: 0,
-                  );
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => ExecutiveCommandCenterScreen(
-                        metrics: metrics,
+                        enterpriseId: enterpriseId,
                       ),
                     ),
                   );

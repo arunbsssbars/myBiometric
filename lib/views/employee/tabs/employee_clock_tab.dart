@@ -628,11 +628,47 @@ class EmployeeClockTab extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          displayName.isNotEmpty ? displayName : 'Personal Workspace',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                displayName.isNotEmpty ? displayName : 'Personal Workspace',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: (isAdminOrHigher || userRole == 'super_admin')
+                    ? const Color(0xFF2563EB).withValues(alpha: 0.12)
+                    : const Color(0xFF10B981).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: (isAdminOrHigher || userRole == 'super_admin')
+                      ? const Color(0xFF2563EB).withValues(alpha: 0.3)
+                      : const Color(0xFF10B981).withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                (userRole == 'super_admin')
+                    ? 'SUPER ADMIN'
+                    : ((isAdminOrHigher || isEnterpriseAdmin) ? 'ADMIN' : 'STAFF'),
+                style: TextStyle(
+                  color: (isAdminOrHigher || userRole == 'super_admin')
+                      ? const Color(0xFF1D4ED8)
+                      : const Color(0xFF047857),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           UniversalCommandPalette.buildAppBarButton(
@@ -645,52 +681,69 @@ class EmployeeClockTab extends StatelessWidget {
               enterpriseId: enterpriseId,
               isAdmin: isAdminOrHigher,
             ),
-          if (isAdminOrHigher && enterpriseId.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.assessment_outlined),
-              tooltip: 'Enterprise Admin & MIS Dashboard',
-              onPressed: () {
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (val) async {
+              if (val == 'admin_mis') {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => EnterpriseAdminDashboardScreen(enterpriseId: enterpriseId),
                   ),
                 );
-              },
-            ),
-          if (userRole == 'super_admin')
-            IconButton(
-              icon: const Icon(Icons.shield_rounded, color: Color(0xFFFBBF24)),
-              tooltip: 'Platform Super Admin Console',
-              onPressed: () {
+              } else if (val == 'super_admin') {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const SuperAdminConsoleScreen()),
                 );
-              },
-            ),
-          if (canUseKiosk && enterpriseId.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.camera_front),
-              tooltip: 'Kiosk Mode',
-              onPressed: onOpenKiosk,
-            ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (val) async {
-              if (val == 'switch') {
+              } else if (val == 'kiosk') {
+                onOpenKiosk();
+              } else if (val == 'switch') {
                 onOpenWorkspaceLink();
               } else if (val == 'logout') {
                 onSignOut();
               }
             },
             itemBuilder: (ctx) => [
+              if (isAdminOrHigher && enterpriseId.isNotEmpty)
+                const PopupMenuItem(
+                  value: 'admin_mis',
+                  child: Row(
+                    children: [
+                      Icon(Icons.assessment_outlined, color: Color(0xFF2563EB), size: 20),
+                      SizedBox(width: 10),
+                      Text('Admin & MIS Dashboard'),
+                    ],
+                  ),
+                ),
+              if (userRole == 'super_admin')
+                const PopupMenuItem(
+                  value: 'super_admin',
+                  child: Row(
+                    children: [
+                      Icon(Icons.shield_rounded, color: Color(0xFFFBBF24), size: 20),
+                      SizedBox(width: 10),
+                      Text('Super Admin Console'),
+                    ],
+                  ),
+                ),
+              if (canUseKiosk && enterpriseId.isNotEmpty)
+                const PopupMenuItem(
+                  value: 'kiosk',
+                  child: Row(
+                    children: [
+                      Icon(Icons.camera_front_rounded, color: Color(0xFF059669), size: 20),
+                      SizedBox(width: 10),
+                      Text('Kiosk Terminal Mode'),
+                    ],
+                  ),
+                ),
               const PopupMenuItem(
                 value: 'switch',
                 child: Row(
                   children: [
-                    Icon(Icons.swap_horiz, color: Color(0xFF2563EB)),
-                    SizedBox(width: 8),
+                    Icon(Icons.swap_horiz_rounded, color: Color(0xFF2563EB), size: 20),
+                    SizedBox(width: 10),
                     Text('Switch Workspace'),
                   ],
                 ),
@@ -699,8 +752,8 @@ class EmployeeClockTab extends StatelessWidget {
                 value: 'logout',
                 child: Row(
                   children: [
-                    Icon(Icons.logout, color: Colors.redAccent),
-                    SizedBox(width: 8),
+                    Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
+                    SizedBox(width: 10),
                     Text('Sign Out'),
                   ],
                 ),

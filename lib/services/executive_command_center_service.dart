@@ -1,4 +1,6 @@
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ExecutiveCockpitMetrics {
   final String enterpriseId;
   final int totalTerminals;
@@ -91,6 +93,89 @@ class ExecutiveCommandCenterService {
       activeTamperAlerts: tamperAlerts,
       averageRecognitionConfidence: averageConfidence,
       aggregatedAt: DateTime.now(),
+    );
+  }
+
+  Future<ExecutiveCockpitMetrics> fetchLiveMetrics(String enterpriseId) async {
+    int totalTerminals = 0;
+    int onlineTerminals = 0;
+    int totalEmployees = 0;
+    int onSiteEmployees = 0;
+    int punchesLastHour = 0;
+    int pendingRegularizations = 0;
+    int tamperAlerts = 0;
+
+    final now = DateTime.now();
+    final oneHourAgo = now.subtract(const Duration(hours: 1));
+    final startOfToday = DateTime(now.year, now.month, now.day);
+
+    try {
+      final devSnap = await FirebaseFirestore.instance
+          .collection('enterprises')
+          .doc(enterpriseId)
+          .collection('devices')
+          .get();
+      totalTerminals = devSnap.docs.length;
+      onlineTerminals = devSnap.docs.where((d) => d.data()['status'] == 'online').length;
+    } catch (_) {}
+
+    try {
+      final empSnap = await FirebaseFirestore.instance
+          .collection('enterprises')
+          .doc(enterpriseId)
+          .collection('employees')
+          .get();
+      totalEmployees = empSnap.docs.length;
+    } catch (_) {}
+
+    try {
+      final logSnap = await FirebaseFirestore.instance
+          .collection('attendance_logs')
+          .where('enterpriseId', isEqualTo: enterpriseId)
+          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday))
+          .get();
+
+      final inUsers = <String>{};
+      final outUsers = <String>{};
+
+      for (final doc in logSnap.docs) {
+        final data = doc.data();
+        final uid = data['userId']?.toString() ?? '';
+        final type = data['type']?.toString();
+        final ts = (data['timestamp'] as Timestamp?)?.toDate();
+
+        if (ts != null && ts.isAfter(oneHourAgo)) {
+          punchesLastHour++;
+        }
+
+        if (type == 'PUNCH_IN') {
+          inUsers.add(uid);
+        } else if (type == 'PUNCH_OUT') {
+          outUsers.add(uid);
+        }
+      }
+
+      onSiteEmployees = inUsers.difference(outUsers).length;
+    } catch (_) {}
+
+    try {
+      final regSnap = await FirebaseFirestore.instance
+          .collection('approval_requests')
+          .where('enterpriseId', isEqualTo: enterpriseId)
+          .where('status', isEqualTo: 'PENDING')
+          .get();
+      pendingRegularizations = regSnap.docs.length;
+    } catch (_) {}
+
+    return synthesizeMetrics(
+      enterpriseId: enterpriseId,
+      totalTerminals: totalTerminals,
+      onlineTerminals: onlineTerminals,
+      totalEmployees: totalEmployees,
+      onSiteEmployees: onSiteEmployees,
+      punchesLastHour: punchesLastHour,
+      pendingRegularizations: pendingRegularizations,
+      tamperAlerts: tamperAlerts,
     );
   }
 }

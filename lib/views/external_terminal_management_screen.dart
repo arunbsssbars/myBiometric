@@ -84,33 +84,34 @@ class _ExternalTerminalManagementScreenState extends State<ExternalTerminalManag
               child: SingleChildScrollView(
                 child: Form(
                   key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextFormField(
-                        controller: nameCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Device Name / Location *',
-                          hintText: 'e.g., Main Entrance DS-K1T343',
-                          isDense: true,
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      TextFormField(
-                        controller: branchNameCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Branch Name',
-                          hintText: 'e.g., Headquarters, Factory 1',
-                          isDense: true,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Row(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isCompact = constraints.maxWidth < 460;
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: TextFormField(
+                          TextFormField(
+                            controller: nameCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Device Name / Location *',
+                              hintText: 'e.g., Main Entrance DS-K1T343',
+                              isDense: true,
+                            ),
+                            validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          TextFormField(
+                            controller: branchNameCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Branch Name',
+                              hintText: 'e.g., Headquarters, Factory 1',
+                              isDense: true,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          if (isCompact) ...[
+                            TextFormField(
                               controller: modelCtrl,
                               decoration: const InputDecoration(
                                 labelText: 'Model Number',
@@ -118,11 +119,10 @@ class _ExternalTerminalManagementScreenState extends State<ExternalTerminalManag
                                 isDense: true,
                               ),
                             ),
-                          ),
-                          const SizedBox(width: AppSpacing.xs),
-                          Expanded(
-                            child: DropdownButtonFormField<TerminalProtocol>(
+                            const SizedBox(height: AppSpacing.sm),
+                            DropdownButtonFormField<TerminalProtocol>(
                               initialValue: selectedProtocol,
+                              isExpanded: true,
                               decoration: const InputDecoration(
                                 labelText: 'Protocol',
                                 isDense: true,
@@ -130,30 +130,68 @@ class _ExternalTerminalManagementScreenState extends State<ExternalTerminalManag
                               items: const [
                                 DropdownMenuItem(
                                   value: TerminalProtocol.hikvisionIsapi,
-                                  child: Text('Hikvision ISAPI'),
+                                  child: Text('Hikvision ISAPI', overflow: TextOverflow.ellipsis),
                                 ),
                                 DropdownMenuItem(
                                   value: TerminalProtocol.hikvisionIsupPush,
-                                  child: Text('Hikvision ISUP 5.0'),
+                                  child: Text('Hikvision ISUP 5.0', overflow: TextOverflow.ellipsis),
                                 ),
                                 DropdownMenuItem(
                                   value: TerminalProtocol.zkTecoAdms,
-                                  child: Text('ZKTeco ADMS / Push'),
+                                  child: Text('ZKTeco ADMS / Push', overflow: TextOverflow.ellipsis),
                                 ),
                               ],
                               onChanged: (val) {
                                 if (val != null) setModalState(() => selectedProtocol = val);
                               },
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: TextFormField(
+                          ] else ...[
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: modelCtrl,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Model Number',
+                                      hintText: 'DS-K1T343EFWX',
+                                      isDense: true,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.sm),
+                                Expanded(
+                                  child: DropdownButtonFormField<TerminalProtocol>(
+                                    initialValue: selectedProtocol,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Protocol',
+                                      isDense: true,
+                                    ),
+                                    items: const [
+                                      DropdownMenuItem(
+                                        value: TerminalProtocol.hikvisionIsapi,
+                                        child: Text('Hikvision ISAPI', overflow: TextOverflow.ellipsis),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: TerminalProtocol.hikvisionIsupPush,
+                                        child: Text('Hikvision ISUP 5.0', overflow: TextOverflow.ellipsis),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: TerminalProtocol.zkTecoAdms,
+                                        child: Text('ZKTeco ADMS / Push', overflow: TextOverflow.ellipsis),
+                                      ),
+                                    ],
+                                    onChanged: (val) {
+                                      if (val != null) setModalState(() => selectedProtocol = val);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: AppSpacing.sm),
+                          if (isCompact) ...[
+                            TextFormField(
                               controller: ipCtrl,
                               decoration: const InputDecoration(
                                 labelText: 'IP Address / Domain *',
@@ -162,11 +200,8 @@ class _ExternalTerminalManagementScreenState extends State<ExternalTerminalManag
                               ),
                               validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                             ),
-                          ),
-                          const SizedBox(width: AppSpacing.xs),
-                          Expanded(
-                            flex: 1,
-                            child: TextFormField(
+                            const SizedBox(height: AppSpacing.sm),
+                            TextFormField(
                               controller: portCtrl,
                               decoration: const InputDecoration(
                                 labelText: 'Port',
@@ -175,14 +210,40 @@ class _ExternalTerminalManagementScreenState extends State<ExternalTerminalManag
                               ),
                               keyboardType: TextInputType.number,
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
+                          ] else ...[
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: TextFormField(
+                                    controller: ipCtrl,
+                                    decoration: const InputDecoration(
+                                      labelText: 'IP Address / Domain *',
+                                      hintText: '192.168.1.150',
+                                      isDense: true,
+                                    ),
+                                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.sm),
+                                Expanded(
+                                  flex: 1,
+                                  child: TextFormField(
+                                    controller: portCtrl,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Port',
+                                      hintText: '80',
+                                      isDense: true,
+                                    ),
+                                    keyboardType: TextInputType.number,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: AppSpacing.sm),
+                          if (isCompact) ...[
+                            TextFormField(
                               controller: userCtrl,
                               decoration: const InputDecoration(
                                 labelText: 'Username',
@@ -190,10 +251,8 @@ class _ExternalTerminalManagementScreenState extends State<ExternalTerminalManag
                                 isDense: true,
                               ),
                             ),
-                          ),
-                          const SizedBox(width: AppSpacing.xs),
-                          Expanded(
-                            child: TextFormField(
+                            const SizedBox(height: AppSpacing.sm),
+                            TextFormField(
                               controller: passCtrl,
                               obscureText: true,
                               decoration: InputDecoration(
@@ -208,26 +267,59 @@ class _ExternalTerminalManagementScreenState extends State<ExternalTerminalManag
                                 return null;
                               },
                             ),
+                          ] else ...[
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: userCtrl,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Username',
+                                      hintText: 'admin',
+                                      isDense: true,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.sm),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: passCtrl,
+                                    obscureText: true,
+                                    decoration: InputDecoration(
+                                      labelText: isEditing ? 'Password (blank to keep)' : 'Password *',
+                                      hintText: '••••••••',
+                                      isDense: true,
+                                    ),
+                                    validator: (v) {
+                                      if (!isEditing && (v == null || v.trim().isEmpty)) {
+                                        return 'Required';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: AppSpacing.sm),
+                          TextFormField(
+                            controller: serialCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Serial Number (Optional)',
+                              hintText: 'e.g., F12345678',
+                              isDense: true,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text('Auto-Sync Logs Periodically', style: context.text.bodyMedium),
+                            value: autoSync,
+                            onChanged: (val) => setModalState(() => autoSync = val),
                           ),
                         ],
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      TextFormField(
-                        controller: serialCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Serial Number (Optional)',
-                          hintText: 'e.g., F12345678',
-                          isDense: true,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text('Auto-Sync Logs Periodically', style: context.text.bodyMedium),
-                        value: autoSync,
-                        onChanged: (val) => setModalState(() => autoSync = val),
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ),
               ),
