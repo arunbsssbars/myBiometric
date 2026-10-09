@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../services/auth_service.dart';
 import '../../enrollment_form_screen.dart' as views_enrollment;
@@ -29,10 +30,117 @@ class EmployeeProfileTab extends StatelessWidget {
     required this.onSignOut,
   });
 
+  Future<void> _showEditNameDialog(BuildContext context, String currentName) async {
+    final controller = TextEditingController(text: currentName);
+    String? errorText;
+
+    final updated = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.edit_outlined, color: Color(0xFF2563EB)),
+              SizedBox(width: 8),
+              Text('Edit Display Name', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Update your official name displayed across punches, greetings, and workforce reports.',
+                style: TextStyle(fontSize: 13, color: Colors.black54),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  labelText: 'Full Name',
+                  errorText: errorText,
+                  prefixIcon: const Icon(Icons.person_outline),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final trimmed = controller.text.trim();
+                if (trimmed.isEmpty) {
+                  setModalState(() => errorText = 'Name cannot be empty');
+                  return;
+                }
+                Navigator.pop(ctx, trimmed);
+              },
+              child: const Text('Save Name'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (updated != null && updated.isNotEmpty && context.mounted) {
+      try {
+        final user = AuthService().currentUser;
+        if (user != null) {
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+            'fullName': updated,
+            'name': updated,
+          }, SetOptions(merge: true));
+          await user.updateDisplayName(updated);
+
+          if (enterpriseId.isNotEmpty) {
+            try {
+              await FirebaseFirestore.instance
+                  .collection('enterprises')
+                  .doc(enterpriseId)
+                  .collection('employees')
+                  .doc(user.uid)
+                  .set({
+                'fullName': updated,
+                'name': updated,
+              }, SetOptions(merge: true));
+            } catch (_) {}
+          }
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Profile name updated successfully'),
+                backgroundColor: Color(0xFF10B981),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to update name: $e'),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   Widget _buildMethodBadge(String label, IconData icon, Color color) {
     return Container(
       margin: const EdgeInsets.only(right: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
@@ -41,11 +149,11 @@ class EmployeeProfileTab extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 10, color: color),
-          const SizedBox(width: 3),
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
           ),
         ],
       ),
@@ -63,6 +171,7 @@ class EmployeeProfileTab extends StatelessWidget {
     final empId = (userData?['employeeId'] as String?)?.trim() ?? 'N/A';
     final department = (userData?['department'] as String?)?.trim() ?? 'General';
     final email = (userData?['email'] as String?)?.trim() ?? user?.email ?? 'N/A';
+    final phone = (userData?['phoneNumber'] as String?)?.trim() ?? (userData?['phone'] as String?)?.trim();
     final role = (userData?['role'] as String?) ?? userRole;
     final isEnrolled = userData?['biometricsEnrolled'] == true;
     final companyTitle = companyName.isNotEmpty ? companyName : enterpriseId;
@@ -78,7 +187,7 @@ class EmployeeProfileTab extends StatelessWidget {
     } else if (role == 'enterprise_admin' || role == 'admin' || isEnterpriseAdmin) {
       roleColor = const Color(0xFF2563EB);
       roleBg = const Color(0xFFDBEAFE);
-      roleLabel = 'ADMINISTRATOR';
+      roleLabel = 'ADMIN';
     } else if (role == 'manager' || role == 'supervisor') {
       roleColor = const Color(0xFF7C3AED);
       roleBg = const Color(0xFFEDE9FE);
@@ -92,21 +201,6 @@ class EmployeeProfileTab extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile & Preferences', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Theme.of(context).brightness == Brightness.dark
-                  ? Icons.light_mode_rounded
-                  : Icons.dark_mode_rounded,
-            ),
-            onPressed: () {
-              final isDark = Theme.of(context).brightness == Brightness.dark;
-              AppThemeNotifier.instance.setThemeMode(
-                isDark ? ThemeMode.light : ThemeMode.dark,
-              );
-            },
-          ),
-        ],
       ),
       body: Center(
         child: ConstrainedBox(
@@ -116,7 +210,7 @@ class EmployeeProfileTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 1. Identity Card
+                // 1. Executive Identity Card with Edit Name Action
                 Card(
                   elevation: 0,
                   color: context.colors.surface,
@@ -126,73 +220,95 @@ class EmployeeProfileTab extends StatelessWidget {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(20.0),
-                    child: Row(
+                    child: Column(
                       children: [
-                        CircleAvatar(
-                          radius: 32,
-                          backgroundColor: roleColor.withValues(alpha: 0.15),
-                          child: Text(
-                            fullName.isNotEmpty ? fullName.substring(0, 1).toUpperCase() : 'U',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: roleColor,
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 32,
+                              backgroundColor: roleColor.withValues(alpha: 0.15),
+                              child: Text(
+                                fullName.isNotEmpty ? fullName.substring(0, 1).toUpperCase() : 'U',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: roleColor,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Flexible(
-                                    child: Text(
-                                      fullName,
-                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          fullName,
+                                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      IconButton(
+                                        icon: const Icon(Icons.edit_outlined, size: 18),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        tooltip: 'Edit Name',
+                                        onPressed: () => _showEditNameDialog(context, fullName),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: roleBg,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          roleLabel,
+                                          style: TextStyle(
+                                            color: roleColor,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 10,
+                                            letterSpacing: 0.4,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    email,
+                                    style: TextStyle(fontSize: 13, color: context.colors.onSurfaceVariant),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (phone != null && phone.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Mobile: $phone',
+                                      style: TextStyle(fontSize: 12, color: context.colors.onSurfaceVariant),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: roleBg,
-                                      borderRadius: BorderRadius.circular(8),
+                                  ],
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'ID: $empId • Department: $department',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: context.colors.onSurfaceVariant,
+                                      fontWeight: FontWeight.w500,
                                     ),
-                                    child: Text(
-                                      roleLabel,
-                                      style: TextStyle(
-                                        color: roleColor,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 10,
-                                        letterSpacing: 0.4,
-                                      ),
-                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                email,
-                                style: TextStyle(fontSize: 13, color: context.colors.onSurfaceVariant),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'ID: $empId • Department: $department',
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: context.colors.onSurfaceVariant,
-                                    fontWeight: FontWeight.w500),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -248,7 +364,7 @@ class EmployeeProfileTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
 
-                // 3. Allowed Verification Methods Card
+                // 3. Authorized Attendance Methods Card
                 Card(
                   elevation: 0,
                   color: context.colors.surface,
@@ -271,10 +387,10 @@ class EmployeeProfileTab extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Decided by your company administrator upon clearance approval:',
+                          'Configured by your company Admin upon clearance approval:',
                           style: TextStyle(fontSize: 12, color: context.colors.onSurfaceVariant),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
@@ -303,7 +419,72 @@ class EmployeeProfileTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
 
-                // 4. Biometrics Security Status Card
+                // 4. Appearance & Theme Settings (Industry standard inside Profile)
+                Card(
+                  elevation: 0,
+                  color: context.colors.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: context.colors.outlineVariant),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.palette_outlined, color: Color(0xFF2563EB), size: 20),
+                            SizedBox(width: 8),
+                            Text('Appearance & Theme',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Choose between Light, Dark, or System mode for optimal viewing comfort.',
+                          style: TextStyle(fontSize: 12, color: context.colors.onSurfaceVariant),
+                        ),
+                        const SizedBox(height: 14),
+                        ListenableBuilder(
+                          listenable: AppThemeNotifier.instance,
+                          builder: (context, _) {
+                            final currentMode = AppThemeNotifier.instance.themeMode;
+                            return SizedBox(
+                              width: double.infinity,
+                              child: SegmentedButton<ThemeMode>(
+                                segments: const [
+                                  ButtonSegment<ThemeMode>(
+                                    value: ThemeMode.system,
+                                    icon: Icon(Icons.brightness_auto_rounded),
+                                    label: Text('System'),
+                                  ),
+                                  ButtonSegment<ThemeMode>(
+                                    value: ThemeMode.light,
+                                    icon: Icon(Icons.light_mode_rounded),
+                                    label: Text('Light'),
+                                  ),
+                                  ButtonSegment<ThemeMode>(
+                                    value: ThemeMode.dark,
+                                    icon: Icon(Icons.dark_mode_rounded),
+                                    label: Text('Dark'),
+                                  ),
+                                ],
+                                selected: {currentMode},
+                                onSelectionChanged: (Set<ThemeMode> newSelection) {
+                                  AppThemeNotifier.instance.setThemeMode(newSelection.first);
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 5. Biometrics Security Status Card
                 Card(
                   elevation: 0,
                   color: context.colors.surface,
@@ -338,7 +519,7 @@ class EmployeeProfileTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
 
-                // 5. Admin & Management Portals (RBAC gated)
+                // 6. Admin Portals (RBAC gated)
                 if (isAdminOrHigher || userRole == 'super_admin') ...[
                   Card(
                     elevation: 0,
@@ -355,7 +536,7 @@ class EmployeeProfileTab extends StatelessWidget {
                             title: const Text('Enterprise Admin & MIS Dashboard',
                                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                             subtitle: const Text(
-                                'Manage employees, clearances, policies, geofences & shifts',
+                                'Manage staff roster, clearances, policies, geofences & shifts',
                                 style: TextStyle(fontSize: 12)),
                             trailing: const Icon(Icons.chevron_right),
                             onTap: () {
@@ -390,7 +571,7 @@ class EmployeeProfileTab extends StatelessWidget {
                   const SizedBox(height: 16),
                 ],
 
-                // 6. Sign Out
+                // 7. Streamlined Sign Out without detailing below
                 Card(
                   elevation: 0,
                   color: context.colors.surface,
@@ -402,8 +583,7 @@ class EmployeeProfileTab extends StatelessWidget {
                     leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
                     title: const Text('Sign Out',
                         style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent)),
-                    subtitle:
-                        const Text('Safely log out of your account on this device', style: TextStyle(fontSize: 12)),
+                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.redAccent),
                     onTap: onSignOut,
                   ),
                 ),

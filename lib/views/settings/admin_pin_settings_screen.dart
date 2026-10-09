@@ -114,7 +114,7 @@ class _AdminPinSettingsScreenState extends State<AdminPinSettingsScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
         title: Text('Reset Admin PIN?', style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
         content: Text(
-          'Since you are signed in as an authenticated Enterprise Administrator (${AuthService().currentUser?.email ?? "Admin"}), you can reset your company PIN back to the default "1234".',
+          'Since you are signed in as an authenticated Enterprise Admin (${AuthService().currentUser?.email ?? "Admin"}), you can reset your company PIN back to the default "1234".',
           style: textTheme.bodyMedium,
         ),
         actions: [

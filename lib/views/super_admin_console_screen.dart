@@ -706,8 +706,8 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
               Expanded(
                 child: Text(
                   isDeveloper
-                      ? 'Developer Control Active: You are the Platform Developer with exclusive authority to provision and revoke Super Administrators.'
-                      : 'Authorized Super Administrator: Provisioned by the Platform Developer. Super Admin provisioning is strictly restricted to the Developer.',
+                      ? 'Developer Control Active: You are the Platform Developer with exclusive authority to provision and revoke Super Admins.'
+                      : 'Authorized Super Admin: Provisioned by the Platform Developer. Super Admin provisioning is strictly restricted to the Developer.',
                   style: const TextStyle(fontSize: 12, color: Color(0xFF92400E), fontWeight: FontWeight.w600),
                 ),
               ),
@@ -1103,7 +1103,7 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                       labelText: 'Enterprise Admin Email',
                       hintText: 'e.g. admin@acme.com',
                       prefixIcon: const Icon(Icons.alternate_email_rounded),
-                      helperText: 'Assigned administrator assigned to govern this workspace',
+                      helperText: 'Assigned admin assigned to govern this workspace',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       filled: true,
                     ),

@@ -86,7 +86,7 @@ class VerifyFacePunchInUseCase {
           confidenceScore: highestSimilarity,
           punchType: punchType,
           isSequenceError: true,
-          sequenceErrorMessage: 'Kiosk facial attendance is not authorized for your account. Please contact your company administrator.',
+          sequenceErrorMessage: 'Kiosk facial attendance is not authorized for your account. Please contact your company admin.',
         );
       }
 

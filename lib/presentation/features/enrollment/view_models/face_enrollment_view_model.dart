@@ -338,7 +338,7 @@ class FaceEnrollmentViewModel extends ChangeNotifier {
     required String fullName,
     required String employeeId,
   }) async {
-    _statusMessage = "Authorizing administrator overwrite...";
+    _statusMessage = "Authorizing admin overwrite...";
     _borderColor = Colors.blueAccent;
     notifyListeners();
 

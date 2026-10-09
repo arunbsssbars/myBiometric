@@ -530,7 +530,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text('Role', style: context.text.bodySmall?.copyWith(color: colors.onSurfaceVariant)),
-                              Text(isAdmin ? 'Enterprise Administrator' : 'Staff Member',
+                              Text(isAdmin ? 'Enterprise Admin' : 'Staff Member',
                                   style: context.text.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                             ],
                           ),

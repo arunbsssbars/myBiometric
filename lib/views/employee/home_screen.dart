@@ -373,27 +373,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _confirmSignOut(BuildContext context) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sign Out'),
-        content: const Text('Are you sure you want to sign out of your account?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Sign Out'),
-          ),
-        ],
-      ),
-    );
-    if (confirm == true && context.mounted) {
-      await performGlobalSignOut(context);
-    }
+    await performGlobalSignOut(context);
   }
 
   Widget _buildFaceCheckingSkeletonLoader() {

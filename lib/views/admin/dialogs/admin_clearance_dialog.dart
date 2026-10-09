@@ -13,6 +13,7 @@ Future<void> showEmployeeClearanceDialog({
   final data = empDoc.data() as Map<String, dynamic>;
   final name = (data['fullName'] as String?)?.trim() ?? (data['name'] as String?)?.trim() ?? 'Employee';
   final email = (data['email'] as String?)?.trim() ?? 'No email provided';
+  final phone = (data['phoneNumber'] as String?)?.trim() ?? (data['phone'] as String?)?.trim();
   final existingId = (data['employeeId'] as String?)?.trim();
   final defaultId = (existingId != null && existingId.isNotEmpty)
       ? existingId
@@ -98,7 +99,7 @@ Future<void> showEmployeeClearanceDialog({
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                email,
+                                phone != null && phone.isNotEmpty ? '$email • 📞 $phone' : email,
                                 style: textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -460,7 +461,7 @@ Future<void> rejectPendingEmployee({
       action: 'STAFF_JOIN_REJECTED',
       category: AuditLogService.categoryStaff,
       targetEmployeeName: name,
-      details: 'Administrator rejected company join application for $name.',
+      details: 'Admin rejected company join application for $name.',
     );
 
     if (context.mounted) {

@@ -3,10 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
 
 /// Screen displayed when an employee has applied to join an enterprise
-/// but their registration is awaiting company administrator approval.
+/// but their registration is awaiting company admin approval.
 ///
 /// Automatically listens to real-time status changes and transitions
-/// to the active workspace as soon as the administrator approves the request.
+/// to the active workspace as soon as the admin approves the request.
 class PendingApprovalScreen extends StatelessWidget {
   final String enterpriseId;
   final String companyName;
@@ -192,7 +192,7 @@ class PendingApprovalScreen extends StatelessWidget {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'Please notify your organization administrator to review and approve your profile from the Staff Roster.',
+                                      'Please notify your organization admin to review and approve your profile from the Staff Roster.',
                                       style: theme.textTheme.bodySmall?.copyWith(
                                         color: Colors.blueGrey.shade700,
                                       ),

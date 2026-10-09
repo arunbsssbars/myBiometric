@@ -66,23 +66,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
-            tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-            onPressed: () {
-              AppThemeNotifier.instance.setThemeMode(
-                isDark ? ThemeMode.light : ThemeMode.dark,
-              );
-            },
-          ),
-        ],
       ),
       body: SafeArea(
         child: Center(

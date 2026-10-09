@@ -132,7 +132,7 @@ class _MobilePunchCardState extends State<MobilePunchCard> {
         SnackBar(
           content: Text(hasKiosk
               ? 'Mobile GPS clock-in is disabled for your account. Please use the Office Kiosk.'
-              : 'Attendance methods are disabled for your account. Please contact your company administrator.'),
+              : 'Attendance methods are disabled for your account. Please contact your company admin.'),
           backgroundColor: statusColors.warning.color,
         ),
       );
@@ -979,8 +979,8 @@ class _MobilePunchCardState extends State<MobilePunchCard> {
                                     const SizedBox(height: 2),
                                     Text(
                                       isKioskAllowed
-                                          ? 'Your enterprise administrator has restricted your attendance verification to authorized kiosk or office terminals.'
-                                          : 'No active attendance methods are currently assigned to your account. Please contact your administrator for clearance.',
+                                          ? 'Your enterprise admin has restricted your attendance verification to authorized kiosk or office terminals.'
+                                          : 'No active attendance methods are currently assigned to your account. Please contact your admin for clearance.',
                                       style: context.text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
                                     ),
                                   ],

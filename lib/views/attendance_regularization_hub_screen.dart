@@ -361,7 +361,7 @@ class _AttendanceRegularizationHubScreenState
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: const Text('Regularization request submitted to Administrator!'),
+                                    content: const Text('Regularization request submitted to Admin!'),
                                     backgroundColor: statusTheme.success.color,
                                     behavior: SnackBarBehavior.floating,
                                   ),

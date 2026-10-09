@@ -28,7 +28,7 @@ class ApprovalScopeBadge extends StatelessWidget {
     final borderColor = primaryColor.withValues(alpha: 0.22);
 
     final title = isGlobal
-        ? 'Enterprise Administrator'
+        ? 'Enterprise Admin'
         : (isManager ? 'Department Manager' : 'Employee');
 
     // Safe joined metadata using AQIL standard

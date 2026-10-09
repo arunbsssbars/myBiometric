@@ -125,7 +125,7 @@ class KioskAudioAccessibilityService {
           case AudioPromptType.tryAgain:
             return 'Face not recognized. Please try again';
           case AudioPromptType.accessDenied:
-            return 'Access denied. Please consult your administrator';
+            return 'Access denied. Please consult your admin';
         }
       case AudioPromptLanguage.es:
         switch (type) {

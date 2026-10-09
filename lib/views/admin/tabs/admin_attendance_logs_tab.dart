@@ -384,7 +384,7 @@ class _AdminAttendanceLogsTabState extends State<AdminAttendanceLogsTab> {
     String punchType = 'PUNCH_IN';
     DateTime punchDate = DateTime.now();
     TimeOfDay punchTime = TimeOfDay.now();
-    final notesController = TextEditingController(text: 'Manual entry by Administrator');
+    final notesController = TextEditingController(text: 'Manual entry by Admin');
     bool isSubmitting = false;
 
     await showDialog(

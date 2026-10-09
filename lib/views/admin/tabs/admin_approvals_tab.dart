@@ -140,7 +140,7 @@ class _AdminApprovalsTabState extends State<AdminApprovalsTab> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'No pending applicants awaiting company administrator approval.',
+                              'No pending applicants awaiting company admin approval.',
                               style: context.textStyles.bodySmall?.copyWith(color: context.colors.textSecondary),
                               textAlign: TextAlign.center,
                             ),
@@ -283,6 +283,7 @@ class _AdminApprovalsTabState extends State<AdminApprovalsTab> {
     final data = empDoc.data() as Map<String, dynamic>;
     final name = (data['fullName'] as String?)?.trim() ?? (data['name'] as String?)?.trim() ?? 'New Employee';
     final email = (data['email'] as String?)?.trim() ?? 'No email';
+    final phone = (data['phoneNumber'] as String?)?.trim() ?? (data['phone'] as String?)?.trim();
     final empId = data['employeeId'] as String?;
     final dept = data['department'] as String? ?? 'General';
     final requestedAt = (data['requestedAt'] as Timestamp?)?.toDate();
@@ -351,7 +352,7 @@ class _AdminApprovalsTabState extends State<AdminApprovalsTab> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '$email • ID: ${empId ?? "Pending"} • $dept',
+                        '$email • ID: ${empId ?? "Pending"}${phone != null && phone.isNotEmpty ? " • 📞 $phone" : ""} • $dept',
                         style: context.textStyles.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
                         overflow: TextOverflow.ellipsis,
                       ),

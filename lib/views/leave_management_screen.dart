@@ -206,7 +206,7 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: const Text('Leave request submitted to Administrator!'),
+                                      content: const Text('Leave request submitted to Admin!'),
                                       backgroundColor: status.success.color,
                                     ),
                                   );

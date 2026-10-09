@@ -406,7 +406,7 @@ class EmployeeClockTab extends StatelessWidget {
                       ),
                       SizedBox(width: 8),
                       Text(
-                        'Under Review by Administrator',
+                        'Under Review by Admin',
                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1D4ED8)),
                       ),
                     ],
@@ -680,34 +680,11 @@ class EmployeeClockTab extends StatelessWidget {
             onSelected: (val) async {
               if (val == 'switch') {
                 onOpenWorkspaceLink();
-              } else if (val == 'toggle_theme') {
-                final isDark = Theme.of(context).brightness == Brightness.dark;
-                AppThemeNotifier.instance.setThemeMode(
-                  isDark ? ThemeMode.light : ThemeMode.dark,
-                );
               } else if (val == 'logout') {
                 onSignOut();
               }
             },
             itemBuilder: (ctx) => [
-              PopupMenuItem(
-                value: 'toggle_theme',
-                child: Row(
-                  children: [
-                    Icon(
-                      Theme.of(context).brightness == Brightness.dark
-                          ? Icons.light_mode_rounded
-                          : Icons.dark_mode_rounded,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(Theme.of(context).brightness == Brightness.dark
-                        ? 'Switch to Light Mode'
-                        : 'Switch to Dark Mode'),
-                  ],
-                ),
-              ),
               const PopupMenuItem(
                 value: 'switch',
                 child: Row(

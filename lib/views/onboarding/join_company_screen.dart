@@ -1,7 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../core/design_system/design_system.dart';
 import '../../services/auth_service.dart';
 import '../../services/admin_pin_service.dart';
 import '../../presentation/navigation/auth_wrapper.dart';
@@ -20,6 +20,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
   final _joinNameController = TextEditingController();
   final _joinEmpIdController = TextEditingController();
   final _joinEmailController = TextEditingController();
+  final _joinPhoneController = TextEditingController();
 
   // Admin registration controllers
   final _adminNameController = TextEditingController();
@@ -29,6 +30,12 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
   // Co-Admin joining
   bool _joinAsCoAdmin = false;
   final _coAdminPinController = TextEditingController();
+
+  // Live Company Code Verification state
+  Timer? _codeDebounce;
+  String? _companyValidationMessage;
+  bool? _isCompanyValid;
+  bool _isCheckingCode = false;
 
   List<Map<String, dynamic>> _linkedEnterprises = [];
   bool _isLoading = false;
@@ -47,16 +54,88 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
 
   @override
   void dispose() {
+    _codeDebounce?.cancel();
     _tabController.dispose();
     _joinCodeController.dispose();
     _joinNameController.dispose();
     _joinEmpIdController.dispose();
     _joinEmailController.dispose();
+    _joinPhoneController.dispose();
     _adminNameController.dispose();
     _adminCodeController.dispose();
     _adminPinController.dispose();
     _coAdminPinController.dispose();
     super.dispose();
+  }
+
+  void _onCompanyCodeChanged(String value) {
+    _codeDebounce?.cancel();
+    final trimmed = value.trim().toUpperCase();
+    if (trimmed.isEmpty) {
+      setState(() {
+        _companyValidationMessage = null;
+        _isCompanyValid = null;
+        _isCheckingCode = false;
+      });
+      return;
+    }
+    if (trimmed.length < 3) {
+      setState(() {
+        _companyValidationMessage = 'Company code must be at least 3 characters.';
+        _isCompanyValid = false;
+        _isCheckingCode = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isCheckingCode = true;
+      _companyValidationMessage = 'Checking company code...';
+    });
+
+    _codeDebounce = Timer(const Duration(milliseconds: 500), () async {
+      try {
+        final doc = await FirebaseFirestore.instance.collection('enterprises').doc(trimmed).get();
+        if (!mounted) return;
+        if (doc.exists && doc.data() != null) {
+          final cName = doc.data()!['name'] ?? doc.data()!['companyName'] ?? trimmed;
+          setState(() {
+            _isCheckingCode = false;
+            _isCompanyValid = true;
+            _companyValidationMessage = '✓ Verified: $cName';
+          });
+        } else {
+          // Check query by code or companyCode field
+          final q = await FirebaseFirestore.instance
+              .collection('enterprises')
+              .where('code', isEqualTo: trimmed)
+              .limit(1)
+              .get();
+          if (!mounted) return;
+          if (q.docs.isNotEmpty) {
+            final cName = q.docs.first.data()['name'] ?? q.docs.first.data()['companyName'] ?? trimmed;
+            setState(() {
+              _isCheckingCode = false;
+              _isCompanyValid = true;
+              _companyValidationMessage = '✓ Verified: $cName';
+            });
+          } else {
+            setState(() {
+              _isCheckingCode = false;
+              _isCompanyValid = false;
+              _companyValidationMessage = 'No organization found with code "$trimmed". Please verify with your HR or Admin.';
+            });
+          }
+        }
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _isCheckingCode = false;
+          _isCompanyValid = null;
+          _companyValidationMessage = null;
+        });
+      }
+    });
   }
 
   Future<void> _fetchLinkedEnterprises() async {
@@ -180,9 +259,12 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
     setState(() => _isLoading = true);
     try {
       final name = _joinNameController.text.trim();
+      final phone = _joinPhoneController.text.trim();
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'email': user.email ?? '',
         'fullName': name.isNotEmpty ? name : (user.displayName ?? 'Team Member'),
+        'name': name.isNotEmpty ? name : (user.displayName ?? 'Team Member'),
+        if (phone.isNotEmpty) 'phoneNumber': phone,
         'role': 'employee',
         'isStandalone': true,
         'createdAt': FieldValue.serverTimestamp(),
@@ -203,12 +285,14 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
     final name = _joinNameController.text.trim();
     final empId = _joinEmpIdController.text.trim();
     final email = _joinEmailController.text.trim();
+    final phone = _joinPhoneController.text.trim();
 
     if (code.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter the Company Code (Enterprise ID).'),
           backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
@@ -219,6 +303,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
         const SnackBar(
           content: Text('Please enter your Full Name.'),
           backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
@@ -229,6 +314,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
         const SnackBar(
           content: Text('Please enter your Employee ID (e.g. EMP-101).'),
           backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
@@ -239,6 +325,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
         const SnackBar(
           content: Text('Please enter the Admin Terminal PIN to join as Co-Admin.'),
           backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
@@ -249,11 +336,25 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
       final entDoc = await FirebaseFirestore.instance.collection('enterprises').doc(code).get();
       if (!entDoc.exists) {
         if (!mounted) return;
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _isCompanyValid = false;
+          _companyValidationMessage = 'Company code "$code" not found. Please verify with your HR or Admin.';
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Invalid Company Code! This enterprise does not exist.'),
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Company Code "$code" does not exist! Please check spelling or consult your Admin.'),
+                ),
+              ],
+            ),
             backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
           ),
         );
         return;
@@ -271,6 +372,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
             const SnackBar(
               content: Text('Incorrect Admin PIN! Co-Admin authorization failed.'),
               backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
             ),
           );
           return;
@@ -284,12 +386,13 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
           : 'user_${user.uid.length >= 6 ? user.uid.substring(0, 6) : user.uid}@employee.local';
 
       if (!_joinAsCoAdmin) {
-        // Regular employee self-joining requires administrator approval before registration is complete
+        // Regular employee self-joining requires Admin clearance approval before registration is complete
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
           'email': effectiveEmail,
           'fullName': name,
           'name': name,
           'employeeId': empId,
+          if (phone.isNotEmpty) 'phoneNumber': phone,
           'role': 'employee',
           'enterpriseId': code,
           'approvalStatus': 'PENDING_APPROVAL',
@@ -297,7 +400,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
           'requestedEnterpriseId': code,
           'requestedAt': FieldValue.serverTimestamp(),
           'createdAt': FieldValue.serverTimestamp(),
-          'allowedVerificationMethods': <String>[], // Default to empty -> Kiosk terminal only
+          'allowedVerificationMethods': <String>[], // Default to empty -> Admin clears methods
         }, SetOptions(merge: true));
 
         try {
@@ -311,6 +414,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
             'name': name,
             'employeeId': empId,
             'email': effectiveEmail,
+            if (phone.isNotEmpty) 'phoneNumber': phone,
             'role': 'employee',
             'status': 'PENDING_APPROVAL',
             'approvalStatus': 'PENDING_APPROVAL',
@@ -325,6 +429,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
           'fullName': name,
           'name': name,
           'employeeId': empId,
+          if (phone.isNotEmpty) 'phoneNumber': phone,
           'role': 'enterprise_admin',
           'enterpriseId': code,
           'linkedEnterprises': FieldValue.arrayUnion([code]),
@@ -340,7 +445,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('Error: $e'), behavior: SnackBarBehavior.floating),
       );
     }
   }
@@ -355,6 +460,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
         const SnackBar(
           content: Text('Please enter both Company Name and Company Code.'),
           backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
@@ -365,6 +471,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
         const SnackBar(
           content: Text('Company Code must be at least 3 characters.'),
           backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
@@ -376,6 +483,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
         const SnackBar(
           content: Text('Company Code may only contain uppercase letters, numbers, hyphens, and underscores.'),
           backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
@@ -386,6 +494,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
         const SnackBar(
           content: Text('Admin PIN must be between 4 and 8 digits (or left blank for default 1234).'),
           backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
@@ -402,6 +511,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
           SnackBar(
             content: Text('Enterprise ID "$code" is already taken! Please choose a unique ID.'),
             backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
           ),
         );
         return;
@@ -424,6 +534,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
           SnackBar(
             content: Text('Enterprise ID "$code" is already taken! Please choose a unique ID.'),
             backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
           ),
         );
         return;
@@ -458,7 +569,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error registering organization: $e')),
+        SnackBar(content: Text('Error registering organization: $e'), behavior: SnackBarBehavior.floating),
       );
     }
   }
@@ -466,6 +577,9 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
   @override
   Widget build(BuildContext context) {
     final user = AuthService().currentUser;
+    final displayName = (user?.displayName != null && user!.displayName!.trim().isNotEmpty)
+        ? user.displayName!.trim()
+        : (user?.email?.split('@').first ?? 'User');
 
     return Scaffold(
       appBar: AppBar(
@@ -481,12 +595,12 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
           ],
         ),
         actions: [
-          if (user?.email != null)
+          if (user != null)
             Padding(
               padding: const EdgeInsets.only(right: 4.0),
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
@@ -495,12 +609,12 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(Icons.account_circle, size: 16),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 5),
                       ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 120),
+                        constraints: const BoxConstraints(maxWidth: 130),
                         child: Text(
-                          user!.email!,
-                          style: const TextStyle(fontSize: 11),
+                          displayName,
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -509,47 +623,10 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
                 ),
               ),
             ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (val) async {
-              if (val == 'toggle_theme') {
-                final isDark = Theme.of(context).brightness == Brightness.dark;
-                AppThemeNotifier.instance.setThemeMode(
-                  isDark ? ThemeMode.light : ThemeMode.dark,
-                );
-              } else if (val == 'sign_out') {
-                await performGlobalSignOut(context);
-              }
-            },
-            itemBuilder: (ctx) => [
-              PopupMenuItem(
-                value: 'toggle_theme',
-                child: Row(
-                  children: [
-                    Icon(
-                      Theme.of(context).brightness == Brightness.dark
-                          ? Icons.light_mode_rounded
-                          : Icons.dark_mode_rounded,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(Theme.of(context).brightness == Brightness.dark
-                        ? 'Switch to Light Mode'
-                        : 'Switch to Dark Mode'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'sign_out',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, color: Colors.redAccent, size: 20),
-                    SizedBox(width: 8),
-                    Text('Sign Out', style: TextStyle(color: Colors.redAccent)),
-                  ],
-                ),
-              ),
-            ],
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+            tooltip: 'Sign Out',
+            onPressed: () => performGlobalSignOut(context),
           ),
           const SizedBox(width: 4),
         ],
@@ -597,7 +674,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
                               title: Text(ent['name'] ?? '',
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                               subtitle: Text(
-                                  'Code: ${ent['code']} • ${ent['isAdmin'] == true ? "Administrator" : "Employee"}',
+                                  'Code: ${ent['code']} • ${ent['isAdmin'] == true ? "Admin" : "Employee"}',
                                   style: const TextStyle(fontSize: 11)),
                               trailing: FilledButton.tonal(
                                 style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
@@ -616,24 +693,76 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
                     // Tab 1: Employee / Co-Admin Join Flow
                     Center(
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.badge_outlined, size: 60, color: Color(0xFF2563EB)),
-                            const SizedBox(height: 16),
+                            // 1. Prominent "Skip for Now • Standalone Mode" banner right at the top
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(Icons.work_outline_rounded, color: Color(0xFF2563EB), size: 22),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Not attached to a company yet?',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                                        ),
+                                        SizedBox(height: 2),
+                                        Text(
+                                          'You can explore personal timekeeping in Standalone Mode without an employer.',
+                                          style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  FilledButton.tonal(
+                                    style: FilledButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    ),
+                                    onPressed: _isLoading ? null : _continueStandalone,
+                                    child: const Text('Skip for Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+
+                            const Icon(Icons.badge_outlined, size: 54, color: Color(0xFF2563EB)),
+                            const SizedBox(height: 12),
                             const Text('Join Your Team',
                                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 4),
                             const Text(
-                              'Enter the Company Code provided by your employer to start clocking in.',
+                              'Enter your Company Code to link your employment profile.',
                               textAlign: TextAlign.center,
                               style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
                             ),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 20),
+
+                            // Company Code Field with Debounced Live Verification
                             TextField(
                               controller: _joinCodeController,
                               textCapitalization: TextCapitalization.characters,
+                              onChanged: _onCompanyCodeChanged,
                               inputFormatters: [
                                 FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_-]')),
                                 TextInputFormatter.withFunction(
@@ -644,9 +773,41 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
                                 labelText: 'Company Code / Enterprise ID (e.g. APEX-HQ)*',
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                 prefixIcon: const Icon(Icons.apartment),
+                                suffixIcon: _isCheckingCode
+                                    ? const Padding(
+                                        padding: EdgeInsets.all(12.0),
+                                        child: SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        ),
+                                      )
+                                    : (_isCompanyValid == true
+                                        ? const Icon(Icons.check_circle, color: Color(0xFF10B981))
+                                        : (_isCompanyValid == false
+                                            ? const Icon(Icons.error_outline, color: Colors.redAccent)
+                                            : null)),
                               ),
                             ),
+                            if (_companyValidationMessage != null) ...[
+                              const SizedBox(height: 6),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  _companyValidationMessage!,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: _isCompanyValid == true
+                                        ? const Color(0xFF059669)
+                                        : (_isCompanyValid == false ? Colors.redAccent : const Color(0xFF64748B)),
+                                  ),
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 12),
+
+                            // Full Name Field
                             TextField(
                               controller: _joinNameController,
                               textCapitalization: TextCapitalization.words,
@@ -657,6 +818,8 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
                               ),
                             ),
                             const SizedBox(height: 12),
+
+                            // Employee ID Field
                             TextField(
                               controller: _joinEmpIdController,
                               textCapitalization: TextCapitalization.characters,
@@ -667,20 +830,36 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
                               ),
                             ),
                             const SizedBox(height: 12),
+
+                            // Optional Mobile Phone Number Field
+                            TextField(
+                              controller: _joinPhoneController,
+                              keyboardType: TextInputType.phone,
+                              decoration: InputDecoration(
+                                labelText: 'Mobile Phone Number (Optional)',
+                                hintText: 'e.g. +1 555-0199',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                prefixIcon: const Icon(Icons.phone_outlined),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Optional Email Field
                             TextField(
                               controller: _joinEmailController,
                               keyboardType: TextInputType.emailAddress,
                               decoration: InputDecoration(
-                                labelText: 'Email Address (Optional)',
+                                labelText: 'Work Email Address (Optional)',
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                 prefixIcon: const Icon(Icons.email_outlined),
                               ),
                             ),
                             const SizedBox(height: 12),
+
                             CheckboxListTile(
                               value: _joinAsCoAdmin,
                               onChanged: (val) => setState(() => _joinAsCoAdmin = val ?? false),
-                              title: const Text('Join as Co-Administrator',
+                              title: const Text('Join as Co-Admin',
                                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                               subtitle: const Text(
                                   'Requires Admin PIN. Grants full enterprise management access.',
@@ -698,13 +877,14 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
                                 maxLength: 6,
                                 decoration: InputDecoration(
                                   labelText: 'Admin Terminal PIN',
-                                  helperText: 'Enter the company PIN set by the primary Administrator',
+                                  helperText: 'Enter the company PIN set by the primary Admin',
                                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                   prefixIcon: const Icon(Icons.lock_outline),
                                 ),
                               ),
                             ],
                             const SizedBox(height: 16),
+
                             SizedBox(
                               width: double.infinity,
                               height: 50,
@@ -716,15 +896,9 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
                                         height: 24,
                                         child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                                       )
-                                    : Text(_joinAsCoAdmin ? 'Join as Administrator' : 'Join Workspace',
+                                    : Text(_joinAsCoAdmin ? 'Join as Admin' : 'Join Workspace',
                                         style: const TextStyle(fontSize: 16)),
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextButton.icon(
-                              onPressed: _isLoading ? null : _continueStandalone,
-                              icon: const Icon(Icons.arrow_forward_rounded, size: 16),
-                              label: const Text('Skip for now • Continue in Standalone Mode'),
                             ),
                           ],
                         ),
@@ -734,21 +908,21 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
                     // Tab 2: Admin Enterprise Registration Flow
                     Center(
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.apartment_rounded, size: 60, color: Color(0xFF10B981)),
-                            const SizedBox(height: 16),
+                            const Icon(Icons.apartment_rounded, size: 54, color: Color(0xFF10B981)),
+                            const SizedBox(height: 12),
                             const Text('Create Organization',
                                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 4),
                             const Text(
-                              'Set up a new company workspace with administrative rights, Kiosk terminal, and MIS reports.',
+                              'Set up a new company workspace with Admin rights, Kiosk terminal, and MIS reports.',
                               textAlign: TextAlign.center,
                               style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
                             ),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 20),
                             TextField(
                               controller: _adminNameController,
                               textCapitalization: TextCapitalization.words,

@@ -236,7 +236,7 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
             ),
             const SizedBox(height: 14),
             Text(
-              'A physical person cannot be enrolled across multiple accounts. Please contact your Enterprise Administrator if you believe this is an error.',
+              'A physical person cannot be enrolled across multiple accounts. Please contact your Enterprise Admin if you believe this is an error.',
               textAlign: TextAlign.center,
               style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
             ),
