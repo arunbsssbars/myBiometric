@@ -613,13 +613,28 @@ class DatabaseService {
   }
 
   // Reset employee biometric face template to allow fresh enrollment
-  Future<void> resetEmployeeBiometrics(String userId) async {
+  Future<void> resetEmployeeBiometrics(String userId, {String? enterpriseId}) async {
     await _db.collection('users').doc(userId).update({
       'biometricsEnrolled': false,
       'facialSignature': FieldValue.delete(),
       'biometricEnrolledAt': FieldValue.delete(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    if (enterpriseId != null && enterpriseId.isNotEmpty) {
+      try {
+        await _db
+            .collection('enterprises')
+            .doc(enterpriseId.trim())
+            .collection('employees')
+            .doc(userId)
+            .set({
+          'biometricsEnrolled': false,
+          'facialSignature': FieldValue.delete(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } catch (_) {}
+    }
   }
 
   // Update employee profile details

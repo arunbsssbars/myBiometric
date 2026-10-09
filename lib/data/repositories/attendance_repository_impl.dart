@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/repositories/attendance_repository.dart';
+import '../../services/offline_attendance_queue_service.dart';
 
 class AttendanceRepositoryImpl implements AttendanceRepository {
   final FirebaseFirestore _firestore;
@@ -42,7 +43,10 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
     if (distanceFromOfficeMeters != null) data['distanceFromOfficeMeters'] = distanceFromOfficeMeters;
     if (withinGeofence != null) data['withinGeofence'] = withinGeofence;
     if (employeeName != null) data['employeeName'] = employeeName;
-    if (employeeIdCode != null) data['employeeIdCode'] = employeeIdCode;
+    if (employeeIdCode != null) {
+      data['employeeIdCode'] = employeeIdCode;
+      data['employeeId'] = employeeIdCode;
+    }
     if (punchStatus != null) data['punchStatus'] = punchStatus;
     if (lateMinutes != null) data['lateMinutes'] = lateMinutes;
     if (earlyMinutes != null) data['earlyMinutes'] = earlyMinutes;
@@ -50,7 +54,14 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
     if (workStatus != null) data['workStatus'] = workStatus;
     if (breakType != null) data['breakType'] = breakType;
 
-    await _firestore.collection('attendance_logs').add(data);
+    try {
+      await _firestore.collection('attendance_logs').add(data);
+    } catch (e) {
+      // Offline fallback: enqueue punch locally so it can sync when connectivity returns
+      try {
+        await OfflineAttendanceQueueService().enqueuePunch(data);
+      } catch (_) {}
+    }
   }
 
   @override

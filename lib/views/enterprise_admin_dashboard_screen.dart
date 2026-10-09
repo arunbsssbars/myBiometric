@@ -3595,7 +3595,7 @@ class _EnterpriseAdminDashboardScreenState
                     );
                     if (confirm == true) {
                       try {
-                        await _dbService.resetEmployeeBiometrics(empDoc.id);
+                        await _dbService.resetEmployeeBiometrics(empDoc.id, enterpriseId: widget.enterpriseId);
                         AuditLogService().logAction(
                           enterpriseId: widget.enterpriseId,
                           action: AuditLogService.actionBiometricReset,

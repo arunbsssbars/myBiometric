@@ -180,6 +180,8 @@ class _UserStateRouterState extends State<UserStateRouter> {
               eId = allEnts.docs.first.id;
               await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
                 'enterpriseId': eId,
+                'email': user.email ?? '${user.uid}@workspace.local',
+                'role': 'super_admin',
               }, SetOptions(merge: true));
             }
           } catch (_) {}
@@ -638,7 +640,10 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
       }
 
       final user = AuthService().currentUser!;
-      final effectiveEmail = email.isNotEmpty ? email : (user.email ?? '');
+      final rawEmail = email.isNotEmpty ? email : (user.email ?? '');
+      final effectiveEmail = rawEmail.contains('@')
+          ? rawEmail
+          : 'user_${user.uid.length >= 6 ? user.uid.substring(0, 6) : user.uid}@employee.local';
 
       if (!_joinAsCoAdmin) {
         // Regular employee self-joining requires administrator approval before registration is complete
@@ -733,6 +738,16 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Company Code may only contain uppercase letters, numbers, hyphens, and underscores.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    if (pin.isNotEmpty && (pin.length < 4 || pin.length > 8)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Admin PIN must be between 4 and 8 digits (or left blank for default 1234).'),
           backgroundColor: Colors.redAccent,
         ),
       );

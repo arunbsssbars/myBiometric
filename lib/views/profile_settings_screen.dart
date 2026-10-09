@@ -98,11 +98,30 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     try {
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'fullName': name,
+        'name': name,
         'phone': _phoneController.text.trim(),
         'designation': _designationController.text.trim(),
         'department': _deptController.text.trim(),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+
+      if (widget.enterpriseId.isNotEmpty) {
+        try {
+          await FirebaseFirestore.instance
+              .collection('enterprises')
+              .doc(widget.enterpriseId)
+              .collection('employees')
+              .doc(user.uid)
+              .set({
+            'fullName': name,
+            'name': name,
+            'phone': _phoneController.text.trim(),
+            'designation': _designationController.text.trim(),
+            'department': _deptController.text.trim(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        } catch (_) {}
+      }
 
       messenger.showSnackBar(
         SnackBar(

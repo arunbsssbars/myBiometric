@@ -1167,9 +1167,11 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                           return;
                         }
 
-                        final eId = 'ENT_${code}_${DateTime.now().millisecondsSinceEpoch % 10000}';
+                        final eId = code;
                         await FirebaseFirestore.instance.collection('enterprises').doc(eId).set({
                           'name': name,
+                          'companyName': name,
+                          'code': code,
                           'companyCode': code,
                           'joinCode': code,
                           'adminEmail': emailCtrl.text.trim().isNotEmpty
@@ -1177,6 +1179,8 @@ class _SuperAdminConsoleScreenState extends State<SuperAdminConsoleScreen>
                               : AuthService().currentUser?.email ?? '',
                           'adminUid': AuthService().currentUser?.uid ?? '',
                           'kioskPin': pinCtrl.text.trim().isNotEmpty ? pinCtrl.text.trim() : '1234',
+                          'status': 'ACTIVE',
+                          'employeeCount': 0,
                           'createdAt': FieldValue.serverTimestamp(),
                           'geofencingEnabled': false,
                           'wifiGeofencingEnabled': false,
