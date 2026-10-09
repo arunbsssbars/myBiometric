@@ -8,6 +8,8 @@ class EmployeeProfile {
   final bool biometricsEnrolled;
   final DateTime? biometricEnrolledAt;
   final String? assignedShift;
+  final List<String> allowedVerificationMethods;
+  final String role;
 
   const EmployeeProfile({
     required this.uid,
@@ -18,6 +20,8 @@ class EmployeeProfile {
     this.biometricsEnrolled = false,
     this.biometricEnrolledAt,
     this.assignedShift,
+    this.allowedVerificationMethods = const ['KIOSK_FACE'],
+    this.role = 'employee',
   });
 
   EmployeeProfile copyWith({
@@ -29,6 +33,8 @@ class EmployeeProfile {
     bool? biometricsEnrolled,
     DateTime? biometricEnrolledAt,
     String? assignedShift,
+    List<String>? allowedVerificationMethods,
+    String? role,
   }) {
     return EmployeeProfile(
       uid: uid ?? this.uid,
@@ -39,6 +45,8 @@ class EmployeeProfile {
       biometricsEnrolled: biometricsEnrolled ?? this.biometricsEnrolled,
       biometricEnrolledAt: biometricEnrolledAt ?? this.biometricEnrolledAt,
       assignedShift: assignedShift ?? this.assignedShift,
+      allowedVerificationMethods: allowedVerificationMethods ?? this.allowedVerificationMethods,
+      role: role ?? this.role,
     );
   }
 
@@ -52,6 +60,8 @@ class EmployeeProfile {
       'biometricsEnrolled': biometricsEnrolled,
       'biometricEnrolledAt': biometricEnrolledAt?.toIso8601String(),
       if (assignedShift != null) 'assignedShift': assignedShift,
+      'allowedVerificationMethods': allowedVerificationMethods,
+      'role': role,
     };
   }
 
@@ -69,6 +79,11 @@ class EmployeeProfile {
           ? DateTime.tryParse(json['biometricEnrolledAt'] as String)
           : null,
       assignedShift: json['assignedShift'] as String?,
+      allowedVerificationMethods: (json['allowedVerificationMethods'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const ['KIOSK_FACE'],
+      role: json['role'] as String? ?? 'employee',
     );
   }
 }

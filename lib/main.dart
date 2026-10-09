@@ -16,11 +16,11 @@ import 'views/enterprise_admin_dashboard_screen.dart';
 import 'views/notification_center_sheet.dart';
 import 'views/mobile_punch_card.dart';
 import 'views/leave_management_screen.dart';
-import 'views/profile_settings_screen.dart';
 import 'views/attendance_activity_screen.dart';
 import 'views/super_admin_console_screen.dart';
 import 'views/email_verification_screen.dart';
 import 'views/pending_approval_screen.dart';
+import 'views/whos_in_whos_out_board.dart';
 import 'presentation/widgets/universal_command_palette.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -109,6 +109,7 @@ class _UserStateRouterState extends State<UserStateRouter> {
   bool _hasError = false;
   bool _isSuperAdmin = false;
   bool _isPendingApproval = false;
+  bool _isStandalone = false;
   String _enterpriseId = '';
   String _companyName = '';
   String _userRole = 'employee';
@@ -317,6 +318,23 @@ class _UserStateRouterState extends State<UserStateRouter> {
             });
           }
         }
+
+        // 4. Check if user is in Standalone Mode
+        final userData = doc.data() ?? {};
+        if ((eId == null || eId.isEmpty) && userData['isStandalone'] == true && !isAuthorizedSuperAdmin) {
+          if (mounted) {
+            setState(() {
+              _hasEnterprise = false;
+              _isStandalone = true;
+              _enterpriseId = '';
+              _companyName = 'Standalone Workspace';
+              _userRole = userData['role']?.toString() ?? 'employee';
+              _isEnterpriseAdmin = false;
+              _isLoading = false;
+            });
+          }
+          return;
+        }
       }
       if (mounted) {
         setState(() {
@@ -377,10 +395,10 @@ class _UserStateRouterState extends State<UserStateRouter> {
         onSignOut: () => performGlobalSignOut(context),
       );
     }
-    if (_hasEnterprise) {
+    if (_hasEnterprise || _isStandalone) {
       return HomeScreen(
         enterpriseId: _enterpriseId,
-        companyName: _companyName,
+        companyName: _companyName.isNotEmpty ? _companyName : 'Standalone Workspace',
         userRole: _userRole,
         isAdmin: _isEnterpriseAdmin,
       );
@@ -556,6 +574,30 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _continueStandalone() async {
+    final user = AuthService().currentUser;
+    if (user == null) return;
+    setState(() => _isLoading = true);
+    try {
+      final name = _joinNameController.text.trim();
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'email': user.email ?? '',
+        'fullName': name.isNotEmpty ? name : (user.displayName ?? 'Team Member'),
+        'role': 'employee',
+        'isStandalone': true,
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      widget.onJoined();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.redAccent),
+        );
       }
     }
   }
@@ -1076,6 +1118,12 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> with SingleTicker
                                 : Text(_joinAsCoAdmin ? 'Join as Administrator' : 'Join Workspace', style: const TextStyle(fontSize: 16)),
                           ),
                         ),
+                        const SizedBox(height: 12),
+                        TextButton.icon(
+                          onPressed: _isLoading ? null : _continueStandalone,
+                          icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                          label: const Text('Skip for now • Continue in Standalone Mode'),
+                        ),
                       ],
                     ),
                   ),
@@ -1481,6 +1529,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _userRole == 'super_admin' ||
       _userRole == 'admin' ||
       _isEnterpriseAdmin;
+  int _selectedTab = 0;
   List<Map<String, dynamic>> _unclosedShifts = [];
   String _effectiveCompanyName = '';
 
@@ -1683,9 +1732,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  List<AppCommand> _getEmployeeCommands() {
+  List<AppCommand> _getEmployeeCommands([List<String>? allowedMethods]) {
     final enterpriseId = widget.enterpriseId;
-    final displayName = widget.companyName.isNotEmpty ? widget.companyName : widget.enterpriseId;
+    final canUseKiosk = _isAdminOrHigher ||
+        (allowedMethods != null &&
+            (allowedMethods.contains('KIOSK_FACE') || allowedMethods.contains('KIOSK_PIN')));
+
     return [
       AppCommand(
         id: 'emp_punch_card',
@@ -1695,20 +1747,21 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icons.fingerprint,
         keywords: ['punch', 'clock in', 'clock out', 'attendance', 'check in'],
         onExecute: () {
-          // Scroll or focus mobile punch card
+          setState(() => _selectedTab = 0);
         },
       ),
-      AppCommand(
-        id: 'emp_kiosk_mode',
-        title: 'Launch Kiosk Terminal Mode',
-        subtitle: 'Switch to front-desk terminal mode for shared facial punches',
-        category: 'Kiosk',
-        icon: Icons.camera_front_rounded,
-        keywords: ['kiosk', 'terminal', 'face id', 'camera'],
-        onExecute: () {
-          _openKioskMode(enterpriseId);
-        },
-      ),
+      if (canUseKiosk && enterpriseId.isNotEmpty)
+        AppCommand(
+          id: 'emp_kiosk_mode',
+          title: 'Launch Kiosk Terminal Mode',
+          subtitle: 'Switch to front-desk terminal mode for shared facial punches',
+          category: 'Kiosk',
+          icon: Icons.camera_front_rounded,
+          keywords: ['kiosk', 'terminal', 'face id', 'camera'],
+          onExecute: () {
+            _openKioskMode(enterpriseId);
+          },
+        ),
       AppCommand(
         id: 'emp_leave_management',
         title: 'Apply for Leave & View Balance',
@@ -1717,15 +1770,7 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icons.event_note_rounded,
         keywords: ['leave', 'vacation', 'sick', 'apply', 'holiday', 'time off'],
         onExecute: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => LeaveManagementScreen(
-                enterpriseId: enterpriseId,
-                companyName: displayName,
-              ),
-            ),
-          );
+          setState(() => _selectedTab = 2);
         },
       ),
       AppCommand(
@@ -1736,16 +1781,18 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icons.history_rounded,
         keywords: ['history', 'activity', 'logs', 'punches', 'regularization'],
         onExecute: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => AttendanceActivityScreen(
-                enterpriseId: enterpriseId,
-                companyName: displayName,
-                userRole: _userRole,
-              ),
-            ),
-          );
+          setState(() => _selectedTab = 1);
+        },
+      ),
+      AppCommand(
+        id: 'emp_team_presence',
+        title: "Who's In / Who's Out (Team Presence)",
+        subtitle: 'Real-time live team board for who is working or on break',
+        category: 'Team',
+        icon: Icons.group_rounded,
+        keywords: ['team', 'presence', 'who is in', 'whos in', 'status'],
+        onExecute: () {
+          setState(() => _selectedTab = 3);
         },
       ),
       if (_userRole == 'super_admin') ...[
@@ -1764,7 +1811,7 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         ),
       ],
-      if (_isAdminOrHigher) ...[
+      if (_isAdminOrHigher && enterpriseId.isNotEmpty) ...[
         AppCommand(
           id: 'admin_dashboard',
           title: 'Open Enterprise Admin & MIS',
@@ -1785,206 +1832,358 @@ class _HomeScreenState extends State<HomeScreen> {
       AppCommand(
         id: 'emp_profile_settings',
         title: 'Profile Settings & Preferences',
-        subtitle: 'Manage notifications, language and appearance themes',
+        subtitle: 'Manage account, workspace, security, and appearance themes',
         category: 'Preferences',
         icon: Icons.person_outline_rounded,
         keywords: ['profile', 'settings', 'account', 'theme', 'dark mode'],
         onExecute: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ProfileSettingsScreen(enterpriseId: enterpriseId),
-            ),
-          );
+          setState(() => _selectedTab = 4);
         },
       ),
     ];
   }
 
-  @override
-  Widget build(BuildContext context) {
+  void _openWorkspaceLinkModal() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => JoinCompanyScreen(
+          onJoined: () {
+            Navigator.pop(context);
+            _fetchEnterpriseDetails();
+            _fetchUserRole();
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmSignOut(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to sign out of your account?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true && context.mounted) {
+      await performGlobalSignOut(context);
+    }
+  }
+
+  Widget _buildGreetingHeader(BuildContext context, Map<String, dynamic>? userData) {
+    final user = AuthService().currentUser;
+    final fullName = (userData?['fullName'] as String?)?.trim() ??
+        (userData?['name'] as String?)?.trim() ??
+        user?.displayName ??
+        user?.email?.split('@').first ??
+        'Team Member';
+    final department = (userData?['department'] as String?)?.trim() ?? 'General';
+    final role = (userData?['role'] as String?) ?? _userRole;
+
+    final now = DateTime.now();
+    final String greeting = now.hour < 12
+        ? 'Good morning'
+        : (now.hour < 17 ? 'Good afternoon' : 'Good evening');
+
+    Color roleColor;
+    Color roleBg;
+    String roleLabel;
+
+    if (role == 'super_admin') {
+      roleColor = const Color(0xFFD97706);
+      roleBg = const Color(0xFFFEF3C7);
+      roleLabel = 'SUPER ADMIN';
+    } else if (role == 'enterprise_admin' || role == 'admin' || _isEnterpriseAdmin) {
+      roleColor = const Color(0xFF2563EB);
+      roleBg = const Color(0xFFDBEAFE);
+      roleLabel = 'ADMIN';
+    } else if (role == 'manager' || role == 'supervisor') {
+      roleColor = const Color(0xFF7C3AED);
+      roleBg = const Color(0xFFEDE9FE);
+      roleLabel = 'MANAGER';
+    } else {
+      roleColor = const Color(0xFF059669);
+      roleBg = const Color(0xFFD1FAE5);
+      roleLabel = 'STAFF';
+    }
+
+    final companyTitle = _effectiveCompanyName.isNotEmpty ? _effectiveCompanyName : widget.enterpriseId;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: roleColor.withValues(alpha: 0.15),
+                child: Text(
+                  fullName.isNotEmpty ? fullName.substring(0, 1).toUpperCase() : 'U',
+                  style: TextStyle(
+                    color: roleColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        '$greeting, $fullName',
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: roleBg,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        roleLabel,
+                        style: TextStyle(
+                          color: roleColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 9,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  companyTitle.isNotEmpty ? '$companyTitle • $department' : 'Standalone Personal Mode',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: context.colors.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStandaloneBanner(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: const Color(0xFFEFF6FF),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFBFDBFE), width: 1.5),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.hub_outlined, color: Color(0xFF1D4ED8), size: 22),
+                SizedBox(width: 8),
+                Text(
+                  'Standalone Personal Mode',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1E3A8A)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'You are exploring myBiometric in standalone mode. Link with your employer to sync shifts, geofences, and shared biometric kiosks.',
+              style: TextStyle(fontSize: 13, color: Color(0xFF1E40AF), height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFF2563EB)),
+                  onPressed: _openWorkspaceLinkModal,
+                  icon: const Icon(Icons.apartment_rounded, size: 16),
+                  label: const Text('Join Company', style: TextStyle(fontSize: 13)),
+                ),
+                const SizedBox(width: 10),
+                OutlinedButton.icon(
+                  onPressed: _openWorkspaceLinkModal,
+                  icon: const Icon(Icons.add_business_rounded, size: 16),
+                  label: const Text('Create Org', style: TextStyle(fontSize: 13)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUnlinkedTabPlaceholder(String title, String description, IconData icon) {
+    return Scaffold(
+      appBar: AppBar(title: Text(title)),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 48, color: const Color(0xFF2563EB)),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  description,
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF64748B), height: 1.4),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: _openWorkspaceLinkModal,
+                  icon: const Icon(Icons.apartment_rounded),
+                  label: const Text('Join or Link Company'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildClockTab(
+    BuildContext context,
+    Map<String, dynamic>? userData,
+    List<String> allowedMethods,
+  ) {
     final enterpriseId = widget.enterpriseId;
     final displayName = widget.companyName.isNotEmpty ? widget.companyName : widget.enterpriseId;
+    final canUseKiosk = _isAdminOrHigher ||
+        allowedMethods.contains('KIOSK_FACE') ||
+        allowedMethods.contains('KIOSK_PIN');
+    final bool canUseBiometrics = _isAdminOrHigher ||
+        allowedMethods.contains('KIOSK_FACE') ||
+        allowedMethods.contains('PHONE_BIOMETRICS');
+    final isEnrolled = userData?['biometricsEnrolled'] == true;
+    final user = AuthService().currentUser;
 
-    return UniversalCommandPaletteHotKey(
-      commandBuilder: _getEmployeeCommands,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            displayName,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          displayName.isNotEmpty ? displayName : 'Personal Workspace',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        actions: [
+          UniversalCommandPalette.buildAppBarButton(
+            context,
+            commandBuilder: () => _getEmployeeCommands(allowedMethods),
           ),
-          actions: [
-            // Universal Command Palette button (Mobile tap & Desktop click)
-            UniversalCommandPalette.buildAppBarButton(
-              context,
-              commandBuilder: _getEmployeeCommands,
+          if (user != null && enterpriseId.isNotEmpty)
+            NotificationBadgeButton(
+              userId: user.uid,
+              enterpriseId: enterpriseId,
+              isAdmin: _isAdminOrHigher,
             ),
-            // In-App Notification Center with live unread badge
-            if (AuthService().currentUser != null)
-              NotificationBadgeButton(
-                userId: AuthService().currentUser!.uid,
-                enterpriseId: enterpriseId,
-                isAdmin: _isAdminOrHigher,
-              ),
-            // Enterprise Admin & MIS Button (Restricted strictly to admins / super admin)
-            if (_isAdminOrHigher)
-              IconButton(
-                icon: const Icon(Icons.assessment_outlined),
-                tooltip: 'Enterprise Admin & MIS Dashboard',
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => EnterpriseAdminDashboardScreen(enterpriseId: enterpriseId),
-                    ),
-                  );
-                },
-              ),
-            // Platform Super Admin Console Crown Button
-            if (_userRole == 'super_admin')
-              IconButton(
-                icon: const Icon(Icons.shield_rounded, color: Color(0xFFFBBF24)),
-                tooltip: 'Platform Super Admin Console',
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const SuperAdminConsoleScreen(),
-                    ),
-                  );
-                },
-              ),
-            // Kiosk Mode Button (PIN protected for non-admins)
+          if (_isAdminOrHigher && enterpriseId.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.assessment_outlined),
+              tooltip: 'Enterprise Admin & MIS Dashboard',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => EnterpriseAdminDashboardScreen(enterpriseId: enterpriseId),
+                  ),
+                );
+              },
+            ),
+          if (_userRole == 'super_admin')
+            IconButton(
+              icon: const Icon(Icons.shield_rounded, color: Color(0xFFFBBF24)),
+              tooltip: 'Platform Super Admin Console',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SuperAdminConsoleScreen()),
+                );
+              },
+            ),
+          if (canUseKiosk && enterpriseId.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.camera_front),
               tooltip: 'Kiosk Mode',
               onPressed: () => _openKioskMode(enterpriseId),
             ),
-
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (val) async {
               if (val == 'switch') {
-                final actualPin = await DatabaseService().getEnterprisePin(widget.enterpriseId);
-                if (!context.mounted) return;
-                final pinController = TextEditingController();
-                String? errorText;
-
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => StatefulBuilder(
-                    builder: (context, setDialogState) {
-                      return AlertDialog(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        title: const Row(
-                          children: [
-                            Icon(Icons.swap_horiz, color: Color(0xFF2563EB)),
-                            SizedBox(width: 8),
-                            Text('Switch Workspace', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Switching workspace unlinks this device context. Your company profile, employee records, and logs are preserved safely.',
-                              style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
-                            ),
-                            const SizedBox(height: 12),
-                            const Text(
-                              'Enter Admin PIN to confirm switch:',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
-                            ),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: pinController,
-                              autofocus: true,
-                              keyboardType: TextInputType.number,
-                              obscureText: true,
-                              maxLength: 6,
-                              decoration: InputDecoration(
-                                labelText: 'Admin Terminal PIN',
-                                errorText: errorText,
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                            ),
-                          ],
-                        ),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white),
-                            onPressed: () async {
-                              final entered = pinController.text.trim();
-                              final isValid = await AdminPinService.instance.checkPin(
-                                widget.enterpriseId,
-                                entered,
-                                {'kioskPin': actualPin},
-                              );
-                              if (!ctx.mounted) return;
-                              if (isValid || entered == '1234' || entered == '0000') {
-                                Navigator.pop(ctx, true);
-                              } else {
-                                setDialogState(() {
-                                  errorText = 'Incorrect Admin PIN';
-                                });
-                              }
-                            },
-                            child: const Text('Switch Workspace'),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                );
-                if (confirm == true) {
-                  final user = AuthService().currentUser;
-                  if (user != null) {
-                    await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-                      'linkedEnterprises': FieldValue.arrayUnion([widget.enterpriseId]),
-                      'enterpriseId': FieldValue.delete(),
-                    });
-                    if (context.mounted) {
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(builder: (_) => const UserStateRouter()),
-                        (route) => false,
-                      );
-                    }
-                  }
-                }
-              } else if (val == 'super_admin') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const SuperAdminConsoleScreen(),
-                  ),
-                );
-              } else if (val == 'admin_dashboard') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => EnterpriseAdminDashboardScreen(enterpriseId: widget.enterpriseId),
-                  ),
-                );
-              } else if (val == 'profile') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ProfileSettingsScreen(enterpriseId: widget.enterpriseId),
-                  ),
-                );
+                _openWorkspaceLinkModal();
               } else if (val == 'toggle_theme') {
                 final isDark = Theme.of(context).brightness == Brightness.dark;
                 AppThemeNotifier.instance.setThemeMode(
                   isDark ? ThemeMode.light : ThemeMode.dark,
                 );
               } else if (val == 'logout') {
-                await performGlobalSignOut(context);
+                await _confirmSignOut(context);
               }
             },
             itemBuilder: (ctx) => [
@@ -2003,38 +2202,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     Text(Theme.of(context).brightness == Brightness.dark
                         ? 'Switch to Light Mode'
                         : 'Switch to Dark Mode'),
-                  ],
-                ),
-              ),
-              if (_isAdminOrHigher)
-                const PopupMenuItem(
-                  value: 'admin_dashboard',
-                  child: Row(
-                    children: [
-                      Icon(Icons.assessment_outlined, color: Color(0xFF2563EB), size: 20),
-                      SizedBox(width: 8),
-                      Text('Enterprise Admin & MIS', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
-              if (_userRole == 'super_admin')
-                const PopupMenuItem(
-                  value: 'super_admin',
-                  child: Row(
-                    children: [
-                      Icon(Icons.shield_rounded, color: Color(0xFFD97706)),
-                      SizedBox(width: 8),
-                      Text('Super Admin Console', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
-              const PopupMenuItem(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    Icon(Icons.person_outline, color: Color(0xFF2563EB)),
-                    SizedBox(width: 8),
-                    Text('Profile Settings'),
                   ],
                 ),
               ),
@@ -2062,390 +2229,562 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      // Scrollable body to guarantee ZERO overflow on any device
-      // Scrollable body to guarantee ZERO overflow on any device
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 960),
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-            child: StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(AuthService().currentUser?.uid)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-                  return _buildFaceCheckingSkeletonLoader();
-                }
+            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 14.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 1. Sleek Greeting Header (replaces the bulky top card)
+                _buildGreetingHeader(context, userData),
+                const SizedBox(height: 12),
 
-                final data = snapshot.data?.data() as Map<String, dynamic>?;
-                final role = data?['role'] as String?;
-                if (role != null && (role == 'enterprise_admin' || role == 'admin' || role == 'super_admin')) {
-                  if (!_isEnterpriseAdmin) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted && !_isEnterpriseAdmin) {
-                        setState(() {
-                          _userRole = role;
-                          _isEnterpriseAdmin = true;
-                        });
-                      }
-                    });
-                  }
-                }
+                // Standalone Banner if unlinked
+                if (widget.enterpriseId.isEmpty) ...[
+                  _buildStandaloneBanner(context),
+                  const SizedBox(height: 14),
+                ],
 
-                final rawMethods = data?['allowedVerificationMethods'] as List<dynamic>?;
-                final List<String> allowedMethods = (rawMethods != null && rawMethods.isNotEmpty)
-                    ? rawMethods.map((e) => e.toString()).toList()
-                    : (_isAdminOrHigher ? ['MOBILE_GPS', 'KIOSK_FACE', 'PHONE_BIOMETRICS'] : []);
+                // 2. Modern Digital Clock Card
+                const ModernDigitalClockCard(),
+                const SizedBox(height: 16),
 
-                final bool canUseBiometrics = _isAdminOrHigher ||
-                    allowedMethods.contains('KIOSK_FACE') ||
-                    allowedMethods.contains('PHONE_BIOMETRICS');
+                // 3. Biometric Registration Prompt (ONLY shown if admin has granted biometric access and user is not enrolled)
+                if (!isEnrolled && canUseBiometrics) ...[
+                  _buildFaceNotRegisteredCard(context),
+                  const SizedBox(height: 16),
+                ],
 
-                final isEnrolled = data?['biometricsEnrolled'] == true;
-                final user = AuthService().currentUser;
+                // 4. Personal Mobile Clock In / Out Action Card (if linked)
+                if (enterpriseId.isNotEmpty) ...[
+                  MobilePunchCard(
+                    enterpriseId: enterpriseId,
+                    userData: userData,
+                  ),
+                  const SizedBox(height: 10),
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // 1. User Specific Identity Card
-                    _buildUserIdentityCard(context, data),
-                    const SizedBox(height: 16),
-
-                    // 2. Modern Digital Clock Card
-                    const ModernDigitalClockCard(),
-                    const SizedBox(height: 18),
-
-                    // 3. Biometric Registration Prompt (ONLY shown if admin has granted biometric access and user is not enrolled)
-                    if (!isEnrolled && canUseBiometrics) ...[
-                      _buildFaceNotRegisteredCard(context),
-                      const SizedBox(height: 18),
-                    ],
-
-                    // 4. Personal Mobile Clock In / Out Action Card
-                    MobilePunchCard(
-                      enterpriseId: enterpriseId,
-                      userData: data,
-                    ),
-                    const SizedBox(height: 10),
-
-                    // 5. Incomplete Shifts / Regularization Stream
-                    StreamBuilder<List<QueryDocumentSnapshot>>(
-                      stream: user != null
-                          ? DatabaseService().getUserApprovalRequests(user.uid)
-                          : const Stream.empty(),
-                      builder: (context, requestsSnapshot) {
-                        final userRequests = requestsSnapshot.data ?? [];
-                        return _buildIncompleteShiftsSection(data, userRequests);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-
-                    // 6. Dedicated Attendance Activity Navigation Card
-                    Container(
-                      decoration: BoxDecoration(
-                        color: context.colors.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: context.colors.outlineVariant),
-                      ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2563EB).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.history_rounded, color: Color(0xFF2563EB), size: 22),
-                        ),
-                        title: Text('Attendance Activity', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: context.colors.onSurface)),
-                        subtitle: Text('View punch timeline, timesheet history & PDF export', style: TextStyle(fontSize: 12, color: context.colors.onSurfaceVariant)),
-                        trailing: Icon(Icons.chevron_right, color: context.colors.onSurfaceVariant),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => AttendanceActivityScreen(
-                                enterpriseId: enterpriseId,
-                                companyName: _effectiveCompanyName,
-                                userRole: _userRole,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // 7. Leave & Time-Off Quick Action
-                    Container(
-                      decoration: BoxDecoration(
-                        color: context.colors.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: context.colors.outlineVariant),
-                      ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0284C7).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.beach_access_rounded, color: Color(0xFF0284C7), size: 22),
-                        ),
-                        title: Text('Leave & Time-Off', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: context.colors.onSurface)),
-                        subtitle: Text('Apply for time-off, sick leave, or check approvals', style: TextStyle(fontSize: 12, color: context.colors.onSurfaceVariant)),
-                        trailing: Icon(Icons.chevron_right, color: context.colors.onSurfaceVariant),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => LeaveManagementScreen(
-                                enterpriseId: enterpriseId,
-                                companyName: _effectiveCompanyName,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                );
-              },
+                  // 5. Incomplete Shifts / Regularization Stream
+                  StreamBuilder<List<QueryDocumentSnapshot>>(
+                    stream: user != null
+                        ? DatabaseService().getUserApprovalRequests(user.uid)
+                        : const Stream.empty(),
+                    builder: (context, requestsSnapshot) {
+                      final userRequests = requestsSnapshot.data ?? [];
+                      return _buildIncompleteShiftsSection(userData, userRequests);
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ],
             ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-  Widget _buildUserIdentityCard(BuildContext context, Map<String, dynamic>? userData) {
+  Widget _buildActivityTab(BuildContext context) {
+    if (widget.enterpriseId.isEmpty) {
+      return _buildUnlinkedTabPlaceholder(
+        'Attendance Activity',
+        'View punch timelines, timesheets, and export PDF records once connected to a company workspace.',
+        Icons.event_note_rounded,
+      );
+    }
+    return AttendanceActivityScreen(
+      enterpriseId: widget.enterpriseId,
+      companyName: _effectiveCompanyName,
+      userRole: _userRole,
+    );
+  }
+
+  Widget _buildLeavesTab(BuildContext context) {
+    if (widget.enterpriseId.isEmpty) {
+      return _buildUnlinkedTabPlaceholder(
+        'Leave & Time-Off',
+        'Apply for leaves, track your balance, and view manager approvals once connected to a company workspace.',
+        Icons.beach_access_rounded,
+      );
+    }
+    return LeaveManagementScreen(
+      enterpriseId: widget.enterpriseId,
+      companyName: _effectiveCompanyName,
+    );
+  }
+
+  Widget _buildTeamTab(BuildContext context) {
+    if (widget.enterpriseId.isEmpty) {
+      return _buildUnlinkedTabPlaceholder(
+        'Team Presence',
+        'Live Who\'s In / Who\'s Out workforce board is available when connected to a company workspace.',
+        Icons.group_rounded,
+      );
+    }
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Who's In / Who's Out", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        actions: [
+          IconButton(
+            icon: Icon(
+              Theme.of(context).brightness == Brightness.dark
+                ? Icons.light_mode_rounded
+                : Icons.dark_mode_rounded,
+            ),
+            onPressed: () {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              AppThemeNotifier.instance.setThemeMode(
+                isDark ? ThemeMode.light : ThemeMode.dark,
+              );
+            },
+          ),
+        ],
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 960),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            child: WhosInWhosOutBoard(enterpriseId: widget.enterpriseId),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileTab(
+    BuildContext context,
+    Map<String, dynamic>? userData,
+    List<String> allowedMethods,
+  ) {
     final user = AuthService().currentUser;
     final fullName = (userData?['fullName'] as String?)?.trim() ??
         (userData?['name'] as String?)?.trim() ??
         user?.displayName ??
         user?.email?.split('@').first ??
-        'Employee';
+        'Team Member';
     final empId = (userData?['employeeId'] as String?)?.trim() ?? 'N/A';
     final department = (userData?['department'] as String?)?.trim() ?? 'General';
-    final email = (userData?['email'] as String?)?.trim() ?? user?.email ?? '';
+    final email = (userData?['email'] as String?)?.trim() ?? user?.email ?? 'N/A';
     final role = (userData?['role'] as String?) ?? _userRole;
+    final isEnrolled = userData?['biometricsEnrolled'] == true;
+    final companyTitle = _effectiveCompanyName.isNotEmpty ? _effectiveCompanyName : widget.enterpriseId;
 
     Color roleColor;
     Color roleBg;
     String roleLabel;
-    IconData roleIcon;
 
     if (role == 'super_admin') {
       roleColor = const Color(0xFFD97706);
       roleBg = const Color(0xFFFEF3C7);
       roleLabel = 'SUPER ADMIN';
-      roleIcon = Icons.shield_rounded;
     } else if (role == 'enterprise_admin' || role == 'admin' || _isEnterpriseAdmin) {
       roleColor = const Color(0xFF2563EB);
       roleBg = const Color(0xFFDBEAFE);
       roleLabel = 'ADMINISTRATOR';
-      roleIcon = Icons.admin_panel_settings_rounded;
     } else if (role == 'manager' || role == 'supervisor') {
       roleColor = const Color(0xFF7C3AED);
       roleBg = const Color(0xFFEDE9FE);
       roleLabel = 'MANAGER';
-      roleIcon = Icons.manage_accounts_rounded;
     } else {
       roleColor = const Color(0xFF059669);
       roleBg = const Color(0xFFD1FAE5);
       roleLabel = 'STAFF';
-      roleIcon = Icons.badge_outlined;
     }
 
-    final rawMethods = userData?['allowedVerificationMethods'] as List<dynamic>?;
-    final List<String> methods = (rawMethods != null && rawMethods.isNotEmpty)
-        ? rawMethods.map((e) => e.toString()).toList()
-        : (_isAdminOrHigher ? ['MOBILE_GPS', 'KIOSK_FACE', 'PHONE_BIOMETRICS'] : []);
-
-    final companyTitle = _effectiveCompanyName.isNotEmpty ? _effectiveCompanyName : widget.enterpriseId;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: context.colors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: context.colors.outlineVariant),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Profile & Preferences', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        actions: [
+          IconButton(
+            icon: Icon(
+              Theme.of(context).brightness == Brightness.dark
+                  ? Icons.light_mode_rounded
+                  : Icons.dark_mode_rounded,
+            ),
+            onPressed: () {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              AppThemeNotifier.instance.setThemeMode(
+                isDark ? ThemeMode.light : ThemeMode.dark,
+              );
+            },
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 26,
-                      backgroundColor: roleColor.withValues(alpha: 0.15),
-                      child: Text(
-                        fullName.isNotEmpty ? fullName.substring(0, 1).toUpperCase() : 'U',
-                        style: TextStyle(
-                          color: roleColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              fullName,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: -0.2,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                // 1. Identity Card
+                Card(
+                  elevation: 0,
+                  color: context.colors.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(color: context.colors.outlineVariant),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 32,
+                          backgroundColor: roleColor.withValues(alpha: 0.15),
+                          child: Text(
+                            fullName.isNotEmpty ? fullName.substring(0, 1).toUpperCase() : 'U',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: roleColor,
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: roleBg,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(roleIcon, size: 12, color: roleColor),
-                                const SizedBox(width: 4),
-                                Text(
-                                  roleLabel,
-                                  style: TextStyle(
-                                    color: roleColor,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 10,
-                                    letterSpacing: 0.4,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      fullName,
+                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'ID: $empId • $department',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: context.colors.onSurfaceVariant,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Icon(Icons.business_rounded, size: 13, color: context.colors.onSurfaceVariant),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              '$companyTitle (${widget.enterpriseId})',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: context.colors.onSurfaceVariant,
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: roleBg,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      roleLabel,
+                                      style: TextStyle(
+                                        color: roleColor,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 10,
+                                        letterSpacing: 0.4,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                              const SizedBox(height: 4),
+                              Text(
+                                email,
+                                style: TextStyle(fontSize: 13, color: context.colors.onSurfaceVariant),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'ID: $empId • Department: $department',
+                                style: TextStyle(fontSize: 12, color: context.colors.onSurfaceVariant, fontWeight: FontWeight.w500),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ),
-          const Divider(height: 1, thickness: 1),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: context.colors.surfaceContainerHighest.withValues(alpha: 0.35),
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-            ),
-            child: Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              alignment: WrapAlignment.spaceBetween,
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Punch Method: ',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.colors.onSurfaceVariant),
+                const SizedBox(height: 16),
+
+                // 2. Organization & Workspace Card
+                Card(
+                  elevation: 0,
+                  color: context.colors.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: context.colors.outlineVariant),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.business_rounded, color: Color(0xFF2563EB), size: 20),
+                            SizedBox(width: 8),
+                            Text('Organization Workspace', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          companyTitle.isNotEmpty ? '$companyTitle (${widget.enterpriseId})' : 'Standalone Mode (Unlinked)',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _openWorkspaceLinkModal,
+                                icon: const Icon(Icons.swap_horiz, size: 18),
+                                label: Text(widget.enterpriseId.isEmpty ? 'Link Company' : 'Switch Workspace'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                    if (_isAdminOrHigher)
-                      _buildMethodBadge('All Admin Channels', Icons.verified_user_rounded, const Color(0xFF2563EB))
-                    else if (methods.isEmpty)
-                      _buildMethodBadge('Office Kiosk Only', Icons.storefront_rounded, const Color(0xFF64748B))
-                    else ...[
-                      if (methods.contains('MOBILE_GPS'))
-                        _buildMethodBadge('Mobile GPS', Icons.location_on_rounded, const Color(0xFF059669)),
-                      if (methods.contains('KIOSK_FACE'))
-                        _buildMethodBadge('Kiosk Face', Icons.face_rounded, const Color(0xFF2563EB)),
-                      if (methods.contains('PHONE_BIOMETRICS'))
-                        _buildMethodBadge('Phone Biometrics', Icons.fingerprint_rounded, const Color(0xFF7C3AED)),
-                      if (methods.contains('OFFICE_WIFI'))
-                        _buildMethodBadge('Office Wi-Fi', Icons.wifi_rounded, const Color(0xFF0284C7)),
-                      if (methods.contains('KIOSK_PIN'))
-                        _buildMethodBadge('PIN Fallback', Icons.pin_rounded, const Color(0xFF475569)),
-                    ],
-                  ],
+                  ),
                 ),
-                Text(
-                  email.isNotEmpty ? email : 'Verified User',
-                  style: TextStyle(fontSize: 11, color: context.colors.onSurfaceVariant),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                const SizedBox(height: 16),
+
+                // 3. Allowed Verification Methods Card
+                Card(
+                  elevation: 0,
+                  color: context.colors.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: context.colors.outlineVariant),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.verified_user_outlined, color: Color(0xFF059669), size: 20),
+                            SizedBox(width: 8),
+                            Text('Authorized Attendance Methods', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Decided by your company administrator upon clearance approval:',
+                          style: TextStyle(fontSize: 12, color: context.colors.onSurfaceVariant),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            if (_isAdminOrHigher)
+                              _buildMethodBadge('All Admin Channels', Icons.verified_user_rounded, const Color(0xFF2563EB))
+                            else if (allowedMethods.isEmpty)
+                              _buildMethodBadge('Office Kiosk Only', Icons.storefront_rounded, const Color(0xFF64748B))
+                            else ...[
+                              if (allowedMethods.contains('MOBILE_GPS'))
+                                _buildMethodBadge('Mobile GPS', Icons.location_on_rounded, const Color(0xFF059669)),
+                              if (allowedMethods.contains('KIOSK_FACE'))
+                                _buildMethodBadge('Kiosk Face ID', Icons.face_rounded, const Color(0xFF2563EB)),
+                              if (allowedMethods.contains('PHONE_BIOMETRICS'))
+                                _buildMethodBadge('Phone Biometrics', Icons.fingerprint_rounded, const Color(0xFF7C3AED)),
+                              if (allowedMethods.contains('OFFICE_WIFI'))
+                                _buildMethodBadge('Office Wi-Fi', Icons.wifi_rounded, const Color(0xFF0284C7)),
+                              if (allowedMethods.contains('KIOSK_PIN'))
+                                _buildMethodBadge('PIN Fallback', Icons.pin_rounded, const Color(0xFF475569)),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 4. Biometrics Security Status Card
+                Card(
+                  elevation: 0,
+                  color: context.colors.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: context.colors.outlineVariant),
+                  ),
+                  child: ListTile(
+                    leading: Icon(
+                      isEnrolled ? Icons.face_rounded : Icons.face_retouching_natural,
+                      color: isEnrolled ? const Color(0xFF10B981) : const Color(0xFFEA580C),
+                      size: 28,
+                    ),
+                    title: Text(isEnrolled ? 'Face Signature Registered' : 'Face Scan Not Registered',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    subtitle: Text(
+                      isEnrolled
+                          ? 'Your facial template is active on this device'
+                          : 'Enroll your face to punch in via enterprise kiosks',
+                      style: TextStyle(fontSize: 12, color: context.colors.onSurfaceVariant),
+                    ),
+                    trailing: OutlinedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const views_enrollment.EnrollmentFormScreen()),
+                        );
+                      },
+                      child: Text(isEnrolled ? 'Re-scan' : 'Enroll'),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 5. Admin & Management Portals (RBAC gated)
+                if (_isAdminOrHigher || _userRole == 'super_admin') ...[
+                  Card(
+                    elevation: 0,
+                    color: context.colors.surface,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: context.colors.outlineVariant),
+                    ),
+                    child: Column(
+                      children: [
+                        if (_isAdminOrHigher && widget.enterpriseId.isNotEmpty)
+                          ListTile(
+                            leading: const Icon(Icons.assessment_outlined, color: Color(0xFF2563EB)),
+                            title: const Text('Enterprise Admin & MIS Dashboard', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            subtitle: const Text('Manage employees, clearances, policies, geofences & shifts', style: TextStyle(fontSize: 12)),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => EnterpriseAdminDashboardScreen(enterpriseId: widget.enterpriseId),
+                                ),
+                              );
+                            },
+                          ),
+                        if (_isAdminOrHigher && _userRole == 'super_admin')
+                          const Divider(height: 1),
+                        if (_userRole == 'super_admin')
+                          ListTile(
+                            leading: const Icon(Icons.shield_rounded, color: Color(0xFFD97706)),
+                            title: const Text('Platform Super Admin Console', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            subtitle: const Text('Govern all tenant organizations, global admins & telemetry', style: TextStyle(fontSize: 12)),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const SuperAdminConsoleScreen()),
+                              );
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // 6. Sign Out
+                Card(
+                  elevation: 0,
+                  color: context.colors.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.3)),
+                  ),
+                  child: ListTile(
+                    leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+                    title: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent)),
+                    subtitle: const Text('Safely log out of your account on this device', style: TextStyle(fontSize: 12)),
+                    onTap: () => _confirmSignOut(context),
+                  ),
+                ),
+                const SizedBox(height: 32),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(AuthService().currentUser?.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+          return Scaffold(body: Center(child: _buildFaceCheckingSkeletonLoader()));
+        }
+
+        final data = snapshot.data?.data() as Map<String, dynamic>?;
+        final role = data?['role'] as String?;
+        if (role != null && (role == 'enterprise_admin' || role == 'admin' || role == 'super_admin')) {
+          if (!_isEnterpriseAdmin) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && !_isEnterpriseAdmin) {
+                setState(() {
+                  _userRole = role;
+                  _isEnterpriseAdmin = true;
+                });
+              }
+            });
+          }
+        }
+
+        final rawMethods = data?['allowedVerificationMethods'] as List<dynamic>?;
+        final List<String> allowedMethods = (rawMethods != null && rawMethods.isNotEmpty)
+            ? rawMethods.map((e) => e.toString()).toList()
+            : (_isAdminOrHigher ? ['MOBILE_GPS', 'KIOSK_FACE', 'PHONE_BIOMETRICS'] : []);
+
+        return UniversalCommandPaletteHotKey(
+          commandBuilder: () => _getEmployeeCommands(allowedMethods),
+          child: Scaffold(
+            body: IndexedStack(
+              index: _selectedTab,
+              children: [
+                _buildClockTab(context, data, allowedMethods),
+                _buildActivityTab(context),
+                _buildLeavesTab(context),
+                _buildTeamTab(context),
+                _buildProfileTab(context, data, allowedMethods),
+              ],
+            ),
+            bottomNavigationBar: NavigationBar(
+              selectedIndex: _selectedTab,
+              onDestinationSelected: (idx) => setState(() => _selectedTab = idx),
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.schedule_outlined),
+                  selectedIcon: Icon(Icons.access_time_filled_rounded),
+                  label: 'Clock',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.event_note_outlined),
+                  selectedIcon: Icon(Icons.event_note_rounded),
+                  label: 'Activity',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.beach_access_outlined),
+                  selectedIcon: Icon(Icons.beach_access_rounded),
+                  label: 'Time-Off',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.group_outlined),
+                  selectedIcon: Icon(Icons.group_rounded),
+                  label: 'Team',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person_outline_rounded),
+                  selectedIcon: Icon(Icons.person_rounded),
+                  label: 'Profile',
                 ),
               ],
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

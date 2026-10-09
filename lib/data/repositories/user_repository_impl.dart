@@ -171,6 +171,12 @@ class UserRepositoryImpl implements UserRepository {
     if (name.isEmpty) name = (data['displayName'] as String?)?.trim() ?? '';
     if (name.isEmpty) name = (data['email'] as String?)?.split('@').first ?? 'Employee';
 
+    final rawMethods = data['allowedVerificationMethods'] as List<dynamic>?;
+    final allowedMethods = (rawMethods != null && rawMethods.isNotEmpty)
+        ? rawMethods.map((e) => e.toString()).toList()
+        : const ['KIOSK_FACE'];
+    final role = data['role'] as String? ?? 'employee';
+
     return EmployeeProfile(
       uid: doc.id,
       fullName: name,
@@ -179,6 +185,9 @@ class UserRepositoryImpl implements UserRepository {
       facialSignature: signature,
       biometricsEnrolled: data['biometricsEnrolled'] == true,
       biometricEnrolledAt: (data['biometricEnrolledAt'] as Timestamp?)?.toDate(),
+      assignedShift: data['assignedShift'] as String?,
+      allowedVerificationMethods: allowedMethods,
+      role: role,
     );
   }
 }

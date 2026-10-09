@@ -127,9 +127,12 @@ class _MobilePunchCardState extends State<MobilePunchCard> {
         : (isAdmin ? const ['MOBILE_GPS'] : const ['KIOSK_FACE']);
 
     if (!isAdmin && !allowedMethods.contains('MOBILE_GPS')) {
+      final hasKiosk = allowedMethods.contains('KIOSK_FACE') || allowedMethods.contains('KIOSK_PIN');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Mobile GPS clock-in is disabled for your account. Please use the Office Kiosk.'),
+          content: Text(hasKiosk
+              ? 'Mobile GPS clock-in is disabled for your account. Please use the Office Kiosk.'
+              : 'Attendance methods are disabled for your account. Please contact your company administrator.'),
           backgroundColor: statusColors.warning.color,
         ),
       );
@@ -568,6 +571,7 @@ class _MobilePunchCardState extends State<MobilePunchCard> {
                         : const ['KIOSK_FACE']);
 
             final bool isMobileGpsAllowed = effectiveMethods.contains('MOBILE_GPS');
+            final bool isKioskAllowed = effectiveMethods.contains('KIOSK_FACE') || effectiveMethods.contains('KIOSK_PIN');
             final bool isTerminalAllowed = effectiveMethods.any((m) =>
                 m == 'TERMINAL_QR' ||
                 m == 'TERMINAL_NFC' ||
@@ -967,12 +971,16 @@ class _MobilePunchCardState extends State<MobilePunchCard> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Mobile GPS Clock-In Restricted',
+                                      isKioskAllowed
+                                          ? 'Mobile GPS Clock-In Restricted'
+                                          : 'Attendance Access Disabled',
                                       style: context.text.labelLarge?.copyWith(fontWeight: FontWeight.bold),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      'Your enterprise administrator has restricted your attendance verification to authorized kiosk or office terminals.',
+                                      isKioskAllowed
+                                          ? 'Your enterprise administrator has restricted your attendance verification to authorized kiosk or office terminals.'
+                                          : 'No active attendance methods are currently assigned to your account. Please contact your administrator for clearance.',
                                       style: context.text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
                                     ),
                                   ],

@@ -73,6 +73,23 @@ class VerifyFacePunchInUseCase {
     }
 
     if (bestMatch != null && highestSimilarity >= effectiveThreshold) {
+      final isAdmin = bestMatch.role == 'enterprise_admin' ||
+          bestMatch.role == 'admin' ||
+          bestMatch.role == 'super_admin';
+      final canUseKiosk = isAdmin || bestMatch.allowedVerificationMethods.contains('KIOSK_FACE');
+
+      if (!canUseKiosk) {
+        return FaceMatchResult(
+          isMatch: false,
+          matchedEmployee: bestMatch,
+          similarity: highestSimilarity,
+          confidenceScore: highestSimilarity,
+          punchType: punchType,
+          isSequenceError: true,
+          sequenceErrorMessage: 'Kiosk facial attendance is not authorized for your account. Please contact your company administrator.',
+        );
+      }
+
       final latestPunch = await _attendanceRepository.getLatestPunchToday(bestMatch.uid);
       final String? lastType = latestPunch?['type'] as String?;
       DateTime? lastTime;

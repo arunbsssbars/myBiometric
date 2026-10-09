@@ -3306,9 +3306,9 @@ class _EnterpriseAdminDashboardScreenState
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
                 ),
-                onPressed: () => _approvePendingEmployee(empDoc),
-                icon: const Icon(Icons.check_rounded, size: 16),
-                label: const Text('Approve & Add to Roster'),
+                onPressed: () => _showEmployeeClearanceDialog(empDoc),
+                icon: const Icon(Icons.verified_user_rounded, size: 16),
+                label: const Text('Review & Grant Clearance'),
               ),
             ],
           ),
@@ -3317,19 +3317,251 @@ class _EnterpriseAdminDashboardScreenState
     );
   }
 
-  Future<void> _approvePendingEmployee(QueryDocumentSnapshot empDoc) async {
+  Future<void> _showEmployeeClearanceDialog(QueryDocumentSnapshot empDoc) async {
     final data = empDoc.data() as Map<String, dynamic>;
     final name = (data['fullName'] as String?)?.trim() ?? (data['name'] as String?)?.trim() ?? 'Employee';
+    final email = (data['email'] as String?)?.trim() ?? 'No email provided';
     final existingId = (data['employeeId'] as String?)?.trim();
-    final empId = (existingId != null && existingId.isNotEmpty) ? existingId : 'EMP-${empDoc.id.length >= 5 ? empDoc.id.substring(0, 5).toUpperCase() : empDoc.id.toUpperCase()}';
+    final defaultId = (existingId != null && existingId.isNotEmpty)
+        ? existingId
+        : 'EMP-${empDoc.id.length >= 5 ? empDoc.id.substring(0, 5).toUpperCase() : empDoc.id.toUpperCase()}';
+
+    final idController = TextEditingController(text: defaultId);
+    String selectedDept = (data['department'] as String?)?.trim() ?? 'General';
+    const departments = ['General', 'Engineering', 'Operations', 'Sales', 'Marketing', 'HR', 'Finance', 'Support'];
+    if (!departments.contains(selectedDept)) {
+      selectedDept = 'General';
+    }
+
+    String selectedRole = (data['role'] as String?)?.trim() ?? 'employee';
+    const roles = ['employee', 'supervisor', 'manager'];
+    if (!roles.contains(selectedRole)) {
+      selectedRole = 'employee';
+    }
+
+    // Default to Kiosk Face and Mobile GPS for new approved staff
+    final Set<String> selectedChannels = {'KIOSK_FACE', 'MOBILE_GPS'};
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) {
+          final colors = dialogCtx.colors;
+          final textTheme = dialogCtx.text;
+          final statusTheme = dialogCtx.status;
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+            title: Row(
+              children: [
+                Icon(Icons.security_rounded, color: colors.primary, size: 26),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Clearance & Permissions',
+                    style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Applicant Identity Box
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceContainerHighest.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.5)),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor: colors.primaryContainer,
+                            child: Text(
+                              name.isNotEmpty ? name[0].toUpperCase() : 'E',
+                              style: TextStyle(fontWeight: FontWeight.bold, color: colors.primary),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(name, style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                                Text(email, style: textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant), overflow: TextOverflow.ellipsis),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+
+                    // Employee ID Field
+                    Text('Assigned Employee ID', style: textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: idController,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        hintText: 'e.g. EMP-101',
+                        prefixIcon: const Icon(Icons.badge_outlined, size: 20),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+
+                    // Department & Role Row
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Department', style: textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 4),
+                              DropdownButtonFormField<String>(
+                                initialValue: selectedDept,
+                                isExpanded: true,
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                ),
+                                items: departments.map((d) => DropdownMenuItem(value: d, child: Text(d, overflow: TextOverflow.ellipsis))).toList(),
+                                onChanged: (val) {
+                                  if (val != null) setDialogState(() => selectedDept = val);
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Role', style: textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 4),
+                              DropdownButtonFormField<String>(
+                                initialValue: selectedRole,
+                                isExpanded: true,
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                ),
+                                items: roles.map((r) => DropdownMenuItem(value: r, child: Text(r.toUpperCase(), overflow: TextOverflow.ellipsis))).toList(),
+                                onChanged: (val) {
+                                  if (val != null) setDialogState(() => selectedRole = val);
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+
+                    // Allowed Verification Channels
+                    Row(
+                      children: [
+                        Icon(Icons.tune_rounded, size: 18, color: colors.primary),
+                        const SizedBox(width: 6),
+                        Text('Authorized Attendance Channels', style: textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Unchecked methods will be locked. If Kiosk Face is unchecked, kiosk terminal face punches will be rejected.',
+                      style: textTheme.bodySmall?.copyWith(fontSize: 11, color: colors.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+
+                    ...[
+                      {'key': 'KIOSK_FACE', 'title': 'Kiosk Face Scanner', 'icon': Icons.camera_front_rounded, 'desc': 'Allow facial recognition on office terminal'},
+                      {'key': 'MOBILE_GPS', 'title': 'Mobile GPS Clock-In', 'icon': Icons.location_on_rounded, 'desc': 'Allow punching via smartphone location'},
+                      {'key': 'OFFICE_WIFI', 'title': 'Office Wi-Fi Geofence', 'icon': Icons.wifi_rounded, 'desc': 'Allow punch when connected to office network'},
+                      {'key': 'PHONE_BIOMETRICS', 'title': 'Phone Biometrics', 'icon': Icons.fingerprint_rounded, 'desc': 'Allow device fingerprint / Face ID'},
+                      {'key': 'KIOSK_PIN', 'title': 'Kiosk PIN Fallback', 'icon': Icons.pin_rounded, 'desc': 'Allow manual employee PIN on terminal'},
+                    ].map((channel) {
+                      final key = channel['key'] as String;
+                      final isSelected = selectedChannels.contains(key);
+                      return CheckboxListTile(
+                        value: isSelected,
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        activeColor: colors.primary,
+                        secondary: Icon(channel['icon'] as IconData, size: 20, color: isSelected ? colors.primary : colors.onSurfaceVariant),
+                        title: Text(channel['title'] as String, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                        subtitle: Text(channel['desc'] as String, style: textTheme.bodySmall?.copyWith(fontSize: 10, color: colors.onSurfaceVariant)),
+                        onChanged: (val) {
+                          setDialogState(() {
+                            if (val == true) {
+                              selectedChannels.add(key);
+                            } else {
+                              selectedChannels.remove(key);
+                            }
+                          });
+                        },
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: statusTheme.success.color,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  final finalId = idController.text.trim();
+                  if (finalId.isEmpty) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(content: Text('Employee ID cannot be empty.')),
+                    );
+                    return;
+                  }
+                  Navigator.pop(ctx, true);
+                },
+                icon: const Icon(Icons.check_rounded, size: 18),
+                label: const Text('Grant Clearance & Activate'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final assignedId = idController.text.trim();
+    final channelsList = selectedChannels.toList();
     final currentAdmin = AuthService().currentUser;
 
     try {
       await FirebaseFirestore.instance.collection('users').doc(empDoc.id).set({
         'approvalStatus': 'APPROVED',
         'status': 'ACTIVE',
-        'employeeId': empId,
-        'allowedVerificationMethods': ['MOBILE_GPS', 'KIOSK_FACE', 'PHONE_BIOMETRICS'],
+        'employeeId': assignedId,
+        'department': selectedDept,
+        'role': selectedRole,
+        'allowedVerificationMethods': channelsList,
         'approvedAt': FieldValue.serverTimestamp(),
         'approvedBy': currentAdmin?.uid ?? '',
         'linkedEnterprises': FieldValue.arrayUnion([widget.enterpriseId]),
@@ -3344,18 +3576,21 @@ class _EnterpriseAdminDashboardScreenState
             .set({
           'approvalStatus': 'APPROVED',
           'status': 'ACTIVE',
-          'employeeId': empId,
+          'employeeId': assignedId,
+          'department': selectedDept,
+          'role': selectedRole,
+          'allowedVerificationMethods': channelsList,
           'approvedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       } catch (_) {}
 
       AuditLogService().logAction(
         enterpriseId: widget.enterpriseId,
-        action: 'STAFF_JOIN_APPROVED',
+        action: 'STAFF_CLEARANCE_GRANTED',
         category: AuditLogService.categoryStaff,
-        targetEmployeeId: empId,
+        targetEmployeeId: assignedId,
         targetEmployeeName: name,
-        details: 'Administrator approved company join application for $name ($empId).',
+        details: 'Admin granted clearance to $name ($assignedId). Channels: [${channelsList.join(', ')}].',
       );
 
       try {
@@ -3363,8 +3598,8 @@ class _EnterpriseAdminDashboardScreenState
           'target': 'USER',
           'userId': empDoc.id,
           'enterpriseId': widget.enterpriseId,
-          'title': 'Join Request Approved!',
-          'body': 'Your request to join $_companyName has been approved. You now have full access to company attendance.',
+          'title': 'Clearance Granted!',
+          'body': 'Your access to $_companyName has been approved by admin. Authorized channels: ${channelsList.join(", ")}.',
           'type': 'REGULARIZATION_APPROVED',
           'read': false,
           'createdAt': FieldValue.serverTimestamp(),
@@ -3374,7 +3609,7 @@ class _EnterpriseAdminDashboardScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Approved $name! Registration completed with $_companyName.'),
+            content: Text('Activated $name with ${channelsList.length} authorized attendance methods!'),
             backgroundColor: context.status.success.color,
           ),
         );
@@ -3382,7 +3617,7 @@ class _EnterpriseAdminDashboardScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to approve employee: $e'), backgroundColor: context.status.danger.color),
+          SnackBar(content: Text('Failed to clear employee: $e'), backgroundColor: context.status.danger.color),
         );
       }
     }
